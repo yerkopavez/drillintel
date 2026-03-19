@@ -154,6 +154,14 @@ select:focus{outline:none;border-color:var(--accent2)}
       </div>
     </div>
     <div class="fg" style="margin-left:8px">
+      <label>Pozos</label>
+      <div style="display:flex;align-items:center;gap:5px">
+        <input type="range" id="pts-opacity" min="0" max="100" value="100" style="width:70px;padding:0"
+          oninput="ptsOpacity=this.value/100;document.getElementById('pts-opacity-lbl').textContent=this.value+'%';renderMap()">
+        <span id="pts-opacity-lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-width:28px">100%</span>
+      </div>
+    </div>
+    <div class="fg" style="margin-left:8px">
       <label>Heatmap</label>
       <div style="display:flex;gap:6px;align-items:center">
         <div class="cm-btn" id="hm-toggle" onclick="toggleHeatmap(this)">OFF</div>
@@ -725,7 +733,8 @@ window.addEventListener('load',async()=>{
 const hmCanvas=document.getElementById('hm-canvas');
 const hmCtx=hmCanvas.getContext('2d');
 let heatmapOn=false;
-let hmCache=null; // {level, banco, patio, imageData}
+let hmCache=null;
+let ptsOpacity=1; // {level, banco, patio, imageData}
 
 function toggleHeatmap(el){
   heatmapOn=!heatmapOn;
@@ -847,13 +856,17 @@ function renderMap(){
     ctx.fillStyle='rgba(121,192,255,.04)';ctx.fill();
   });
   const r=Math.max(2.5,Math.min(7,4*mapState.sc));
-  filtered.forEach(h=>{
-    if(!h.x||!h.y)return;
-    const{sx,sy}=w2s(h.x,h.y);
-    if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r)return;
-    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fillStyle=hColor(h);ctx.fill();
-    if(selHole?.id===h.id){ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}
-  });
+  if(ptsOpacity>0){
+    ctx.globalAlpha=ptsOpacity;
+    filtered.forEach(h=>{
+      if(!h.x||!h.y)return;
+      const{sx,sy}=w2s(h.x,h.y);
+      if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r)return;
+      ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fillStyle=hColor(h);ctx.fill();
+      if(selHole?.id===h.id){ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.globalAlpha=1;ctx.stroke();ctx.globalAlpha=ptsOpacity;}
+    });
+    ctx.globalAlpha=1;
+  }
   document.getElementById('map-legend').style.display='block';
   updateLegend();
   // Refresh heatmap overlay after map redraws
