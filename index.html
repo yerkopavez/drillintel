@@ -176,6 +176,14 @@ select:focus{outline:none;border-color:var(--accent2)}
         </div>
       </div>
     </div>
+    <div class="fg" style="margin-left:8px">
+      <label>Polígonos</label>
+      <div style="display:flex;align-items:center;gap:5px">
+        <input type="range" id="poly-width" min="1" max="6" value="1" step="0.5" style="width:60px;padding:0"
+          oninput="polyWidth=+this.value;document.getElementById('pw-lbl').textContent=this.value+'px';renderMap()">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="pw-lbl">1px</span>
+      </div>
+    </div>
     <div style="margin-left:auto;display:flex;gap:6px">
       <button class="btn" onclick="zoom(1.25)">+</button>
       <button class="btn" onclick="zoom(.8)">−</button>
@@ -786,7 +794,8 @@ const hmCanvas=document.getElementById('hm-canvas');
 const hmCtx=hmCanvas.getContext('2d');
 let heatmapOn=false;
 let hmCache=null;
-let ptsOpacity=1; // {level, banco, patio, imageData}
+let ptsOpacity=1;
+let polyWidth=1; // {level, banco, patio, imageData}
 
 function toggleHeatmap(el){
   heatmapOn=!heatmapOn;
@@ -903,16 +912,28 @@ function renderMap(){
   POLYS.forEach(poly=>{
     let v=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
     if(!v||v.length<3)return;
+    // Remove consecutive duplicate points (fixes the extra angle bug)
+    const clean=v.filter((pt,i)=>{
+      if(i===0)return true;
+      const prev=v[i-1];
+      return Math.abs(pt.x-prev.x)>0.01||Math.abs(pt.y-prev.y)>0.01;
+    });
+    // Also remove last point if it equals the first (explicit close)
+    if(clean.length>1){
+      const first=clean[0],last=clean[clean.length-1];
+      if(Math.abs(first.x-last.x)<0.01&&Math.abs(first.y-last.y)<0.01) clean.pop();
+    }
+    if(clean.length<3)return;
     const isCierre=!poly.poly_type||poly.poly_type==='cierre';
-    ctx.beginPath();v.forEach((pt,i)=>{const{sx,sy}=w2s(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
+    ctx.beginPath();
+    clean.forEach((pt,i)=>{const{sx,sy}=w2s(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
     ctx.closePath();
+    ctx.lineWidth=polyWidth;
     if(isCierre){
-      // Cierre: línea sólida celeste
-      ctx.strokeStyle='rgba(56,189,248,0.7)';ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.stroke();
+      ctx.strokeStyle=`rgba(56,189,248,${0.5+polyWidth*0.1})`;ctx.setLineDash([]);ctx.stroke();
       ctx.fillStyle='rgba(56,189,248,0.05)';ctx.fill();
-    } else {
-      // Diseño: línea punteada amarilla
-      ctx.strokeStyle='rgba(251,191,36,0.8)';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.stroke();
+    }else{
+      ctx.strokeStyle=`rgba(251,191,36,${0.6+polyWidth*0.1})`;ctx.setLineDash([6,4]);ctx.stroke();
       ctx.fillStyle='rgba(251,191,36,0.05)';ctx.fill();
       ctx.setLineDash([]);
     }
