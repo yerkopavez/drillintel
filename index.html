@@ -884,7 +884,21 @@ async function uploadFiles(type){
       const text=await item.file.text();
       let records=[],table='',conflict='';
       if(type==='pozos'){records=pPozos(text,item.name);table='pozos';conflict='acq_hole';}
-      else if(type==='mwd'){records=pMWD(text,item.name);table='mwd_signals';conflict='acq_hole,depth_from,depth_to';}
+      else if(type==='mwd'){
+        records=pMWD(text,item.name);table='mwd_signals';
+        // MWD uses insert only — no upsert to avoid constraint requirement
+        logEl.textContent+=`${item.name}: ${records.length} registros\n`;
+        let bOk=0,bErr=0;
+        for(let j=0;j<records.length;j+=500){
+          const{error}=await sb.from('mwd_signals').insert(records.slice(j,j+500));
+          if(error&&error.code!=='23505'){logEl.textContent+=`  Error: ${error.message}\n`;bErr++;}
+          else bOk+=Math.min(500,records.length-j);
+        }
+        ok+=bOk;err+=bErr;
+        item.status='ok';rFL(type);logEl.scrollTop=logEl.scrollHeight;
+        document.getElementById('pb-'+type).style.width=Math.round(((i+1)/queue.length)*100)+'%';
+        continue;
+      }
       logEl.textContent+=`${item.name}: ${records.length} registros\n`;
       for(let j=0;j<records.length;j+=500){
         const{error}=await sb.from(table).upsert(records.slice(j,j+500),{onConflict:conflict,ignoreDuplicates:true});
