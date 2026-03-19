@@ -153,6 +153,16 @@ select:focus{outline:none;border-color:var(--accent2)}
         <div class="cm-btn" data-m="equipo" onclick="setColor(this)">Equipo</div>
       </div>
     </div>
+    <div class="fg" style="margin-left:8px">
+      <label>Heatmap</label>
+      <div style="display:flex;gap:4px;align-items:center">
+        <div class="cm-btn" id="hm-toggle" onclick="toggleHeatmap(this)">OFF</div>
+        <select id="hm-level" onchange="if(heatmapOn)buildHeatmap()" style="display:none">
+          <option value="banco">Por banco</option>
+          <option value="patio">Por patio</option>
+        </select>
+      </div>
+    </div>
     <div style="margin-left:auto;display:flex;gap:6px">
       <button class="btn" onclick="zoom(1.25)">+</button>
       <button class="btn" onclick="zoom(.8)">−</button>
@@ -166,6 +176,7 @@ select:focus{outline:none;border-color:var(--accent2)}
   <div class="view active" id="view-malla">
     <div id="map-wrap">
       <canvas id="map-canvas"></canvas>
+      <canvas id="hm-canvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.72;display:none"></canvas>
       <div id="map-stats" style="display:none">
         <div class="ms-row">
           <div class="ms-item"><div class="ml">Pozos</div><div class="mv" id="ms-n" style="color:var(--accent2)">—</div></div>
@@ -447,28 +458,6 @@ function hColor(h){
   return msegColor(h.mse);
 }
 
-function renderMap(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(!filtered.length)return;
-  POLYS.forEach(poly=>{
-    let v=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
-    if(!v||v.length<3)return;
-    ctx.beginPath();v.forEach((pt,i)=>{const{sx,sy}=w2s(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
-    ctx.closePath();ctx.strokeStyle='rgba(121,192,255,.35)';ctx.lineWidth=1.2;ctx.stroke();
-    ctx.fillStyle='rgba(121,192,255,.04)';ctx.fill();
-  });
-  const r=Math.max(2.5,Math.min(7,4*mapState.sc));
-  filtered.forEach(h=>{
-    if(!h.x||!h.y)return;
-    const{sx,sy}=w2s(h.x,h.y);
-    if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r)return;
-    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fillStyle=hColor(h);ctx.fill();
-    if(selHole?.id===h.id){ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}
-  });
-  document.getElementById('map-legend').style.display='block';
-  updateLegend();
-}
-
 function updateLegend(){
   const gw=document.getElementById('leg-grad-wrap');
   const cw=document.getElementById('leg-cats-wrap');
@@ -727,7 +716,142 @@ window.addEventListener('load',async()=>{
     document.getElementById('db-status').className='badge offline';
   }
 });
-window.addEventListener('resize',()=>{resizeCanvas();renderMap();});
+// ─── HEATMAP IDW ───
+const hmCanvas=document.getElementById('hm-canvas');
+const hmCtx=hmCanvas.getContext('2d');
+let heatmapOn=false;
+let hmCache=null; // {level, banco, patio, imageData}
+
+function toggleHeatmap(el){
+  heatmapOn=!heatmapOn;
+  el.textContent=heatmapOn?'ON':'OFF';
+  el.style.background=heatmapOn?'var(--accent2)':'';
+  el.style.borderColor=heatmapOn?'var(--accent2)':'';
+  el.style.color=heatmapOn?'#000':'';
+  document.getElementById('hm-level').style.display=heatmapOn?'inline-block':'none';
+  hmCanvas.style.display=heatmapOn?'block':'none';
+  if(heatmapOn) buildHeatmap();
+  else{hmCtx.clearRect(0,0,hmCanvas.width,hmCanvas.height);hmCache=null;}
+}
+
+function mseToRGBA(mse,alpha){
+  if(!mse||mse<=0) return null;
+  // Use same 7-cat palette
+  const c=getCat(mse);
+  if(!c) return null;
+  // Parse hex color to RGB
+  const h=c.color.replace('#','');
+  const r=parseInt(h.slice(0,2),16);
+  const g=parseInt(h.slice(2,4),16);
+  const b=parseInt(h.slice(4,6),16);
+  return[r,g,b,Math.round(alpha*255)];
+}
+
+function buildHeatmap(){
+  if(!filtered.length||!heatmapOn) return;
+  const level=document.getElementById('hm-level').value;
+
+  // Determine source holes based on level
+  let src=filtered.filter(h=>h.x&&h.y&&h.mse);
+  if(level==='patio'&&activePatio) src=src.filter(h=>h.patioCode===activePatio);
+  else if(level==='banco'&&activeBanco) src=src.filter(h=>h.banco===activeBanco);
+  if(src.length<4){hmCtx.clearRect(0,0,hmCanvas.width,hmCanvas.height);return;}
+
+  // Grid resolution: adaptive to number of holes
+  const GRID=src.length>3000?50:src.length>1000?70:90;
+
+  hmCanvas.width=canvas.width;
+  hmCanvas.height=canvas.height;
+
+  // Get screen bounds
+  const pts=src.map(h=>w2s(h.x,h.y));
+  const sxMin=Math.min(...pts.map(p=>p.sx));
+  const sxMax=Math.max(...pts.map(p=>p.sx));
+  const syMin=Math.min(...pts.map(p=>p.sy));
+  const syMax=Math.max(...pts.map(p=>p.sy));
+
+  const cellW=(sxMax-sxMin)/GRID;
+  const cellH=(syMax-syMin)/GRID;
+  if(cellW<=0||cellH<=0) return;
+
+  // IDW parameters
+  const POWER=2;
+  const MAX_DIST=Math.max(cellW,cellH)*6; // search radius = 6 cells
+
+  // Build imageData for performance
+  const imgData=hmCtx.createImageData(hmCanvas.width,hmCanvas.height);
+  const data=imgData.data;
+
+  // For each grid cell compute IDW MSE
+  for(let gi=0;gi<GRID;gi++){
+    for(let gj=0;gj<GRID;gj++){
+      const cx=sxMin+gi*cellW+cellW/2;
+      const cy=syMin+gj*cellH+cellH/2;
+
+      // Find nearby holes within radius
+      let wSum=0,mseSum=0;
+      for(let k=0;k<src.length;k++){
+        const{sx,sy}=pts[k];
+        const dx=sx-cx,dy=sy-cy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist>MAX_DIST) continue;
+        if(dist<0.5){// exact hit
+          wSum=1;mseSum=src[k].mse;break;
+        }
+        const w=1/Math.pow(dist,POWER);
+        wSum+=w;mseSum+=w*src[k].mse;
+      }
+      if(wSum===0) continue;
+
+      const interpolated=mseSum/wSum;
+      const rgba=mseToRGBA(interpolated,0.78);
+      if(!rgba) continue;
+      const[r,g,b,a]=rgba;
+
+      // Fill grid cell pixels
+      const px0=Math.max(0,Math.round(cx-cellW/2));
+      const px1=Math.min(hmCanvas.width-1,Math.round(cx+cellW/2));
+      const py0=Math.max(0,Math.round(cy-cellH/2));
+      const py1=Math.min(hmCanvas.height-1,Math.round(cy+cellH/2));
+
+      for(let py=py0;py<=py1;py++){
+        for(let px=px0;px<=px1;px++){
+          const idx=(py*hmCanvas.width+px)*4;
+          data[idx]=r;data[idx+1]=g;data[idx+2]=b;data[idx+3]=a;
+        }
+      }
+    }
+  }
+  hmCtx.putImageData(imgData,0,0);
+}
+
+// Rebuild heatmap when map moves or rescales
+const _origRenderMap=renderMap;
+// Override renderMap to also refresh heatmap position
+function renderMap(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!filtered.length)return;
+  POLYS.forEach(poly=>{
+    let v=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
+    if(!v||v.length<3)return;
+    ctx.beginPath();v.forEach((pt,i)=>{const{sx,sy}=w2s(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
+    ctx.closePath();ctx.strokeStyle='rgba(121,192,255,.35)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle='rgba(121,192,255,.04)';ctx.fill();
+  });
+  const r=Math.max(2.5,Math.min(7,4*mapState.sc));
+  filtered.forEach(h=>{
+    if(!h.x||!h.y)return;
+    const{sx,sy}=w2s(h.x,h.y);
+    if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r)return;
+    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fillStyle=hColor(h);ctx.fill();
+    if(selHole?.id===h.id){ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}
+  });
+  document.getElementById('map-legend').style.display='block';
+  updateLegend();
+  // Refresh heatmap overlay after map redraws
+  if(heatmapOn) buildHeatmap();
+}
+window.addEventListener('resize',()=>{resizeCanvas();hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;renderMap();});
 </script>
 </body>
 </html>
