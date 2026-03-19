@@ -7,7 +7,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--bg4:#21262d;--border:#30363d;--border2:#444c56;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--accent:#f0883e;--accent2:#79c0ff;--accent3:#56d364;--danger:#f85149;--warn:#e3b341;--purple:#bc8cff;--font:-apple-system,"Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono","Fira Code",monospace}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--bg4:#21262d;
+  --border:#30363d;--border2:#444c56;
+  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+  --accent:#f0883e;--accent2:#79c0ff;--accent3:#56d364;
+  --danger:#f85149;--warn:#e3b341;--purple:#bc8cff;
+  --font:-apple-system,"Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono","Fira Code",monospace;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 #header{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
@@ -28,7 +36,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .fg label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
 select{background:var(--bg4);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer}
 select:focus{outline:none;border-color:var(--accent2)}
-.chip{padding:2px 10px;border-radius:10px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg4);color:var(--text2);transition:all .1s;white-space:nowrap}
+.chip{padding:2px 10px;border-radius:10px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg4);color:var(--text2);white-space:nowrap}
 .chip.af{background:var(--accent2);border-color:var(--accent2);color:#000;font-weight:600}
 .chip.ab{background:var(--purple);border-color:var(--purple);color:#000;font-weight:600}
 .chip.ap{background:var(--accent3);border-color:var(--accent3);color:#000;font-weight:600}
@@ -38,40 +46,32 @@ select:focus{outline:none;border-color:var(--accent2)}
 .btn:hover{background:var(--border)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
 #content{flex:1;overflow:hidden;display:flex}
 .view{display:none;width:100%;height:100%}.view.active{display:flex}
-/* MAP */
 #view-malla{flex-direction:row}
 #map-wrap{flex:1;position:relative;overflow:hidden;background:#080c12;cursor:crosshair}
 #map-canvas{position:absolute;top:0;left:0}
-#tooltip{position:absolute;pointer-events:none;display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:11px;z-index:10;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,.8)}
+#tooltip{position:absolute;pointer-events:none;display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-size:11px;z-index:10;min-width:190px;box-shadow:0 4px 16px rgba(0,0,0,.8)}
 .tt-id{font-weight:600;font-family:var(--mono);color:var(--accent2);font-size:12px;margin-bottom:5px}
 .tt-row{display:flex;justify-content:space-between;gap:14px;margin:2px 0}
 .tt-lbl{color:var(--text3)}.tt-val{font-weight:500;font-family:var(--mono)}
-
-/* LEGEND — smarter */
-#map-legend{position:absolute;bottom:12px;left:12px;z-index:5;background:rgba(22,27,34,.95);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;min-width:160px}
+#map-legend{position:absolute;bottom:12px;left:12px;z-index:5;background:rgba(22,27,34,.95);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:155px}
 #map-legend .lt{color:var(--text2);margin-bottom:7px;font-weight:500;font-size:12px}
 .leg-gradient{width:100%;height:8px;border-radius:4px;margin:4px 0}
 .leg-scale{display:flex;justify-content:space-between;margin-top:2px}
 .leg-scale span{font-size:10px;color:var(--text3);font-family:var(--mono)}
-.leg-cats{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.leg-cats{display:flex;flex-direction:column;gap:4px}
 .leg-cat{display:flex;align-items:center;gap:7px;font-size:11px}
 .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.leg-cat-lbl{color:var(--text2)}
-/* stats overlay */
 #map-stats{position:absolute;top:10px;left:10px;z-index:5;background:rgba(22,27,34,.85);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:11px;display:none}
 .ms-row{display:flex;gap:16px}
 .ms-item .ml{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
 .ms-item .mv{font-size:13px;font-weight:700;font-family:var(--mono)}
-
 #map-overlay{position:absolute;inset:0;background:rgba(8,12,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:20}
 #map-overlay.hidden{display:none}
-#ov-text{font-size:13px;color:var(--text2);text-align:center;max-width:260px}
+#ov-text{font-size:13px;color:var(--text2);text-align:center;max-width:280px;line-height:1.5}
 #ov-bar-wrap{width:200px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
 #ov-bar{height:100%;background:var(--accent2);width:0%;transition:width .3s}
 .spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* DETAIL */
 #detail{width:285px;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
 #empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px}
 #det-content{display:none;flex-direction:column}
@@ -83,7 +83,7 @@ select:focus{outline:none;border-color:var(--accent2)}
 .crumb.f{background:rgba(121,192,255,.15);color:var(--accent2)}
 .crumb.b{background:rgba(188,140,255,.15);color:var(--purple)}
 .crumb.p{background:rgba(86,211,100,.15);color:var(--accent3)}
-.hardness-pill{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;margin-top:6px}
+.mse-cat-pill{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;margin-top:6px}
 .det-body{padding:12px}
 .det-sec{margin-bottom:13px}
 .det-sec-title{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px}
@@ -93,8 +93,6 @@ select:focus{outline:none;border-color:var(--accent2)}
 .mse-bar-c{background:var(--bg4);border-radius:4px;height:5px;margin-top:6px;overflow:hidden}
 .mse-bar-f{height:100%;border-radius:4px;transition:width .4s}
 #prof-wrap{padding:0 12px 12px}
-
-/* DASHBOARD */
 #view-dashboard{flex-direction:column;overflow-y:auto;padding:16px;gap:14px}
 .dash-filters{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;flex-wrap:wrap}
 .dash-filters label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
@@ -106,8 +104,6 @@ select:focus{outline:none;border-color:var(--accent2)}
 .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px}
 .chart-card .ct{font-size:11px;font-weight:600;margin-bottom:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
-
-/* UPLOAD */
 #view-upload{flex-direction:column;overflow-y:auto;padding:20px;gap:14px}
 .upload-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;width:100%;max-width:620px}
 .upload-card h3{font-size:13px;font-weight:600;margin-bottom:12px}
@@ -138,11 +134,13 @@ select:focus{outline:none;border-color:var(--accent2)}
     <div class="hstat"><div class="v" id="hs-rend" style="color:var(--accent2)">—</div><div class="l">Rend. m/hr</div></div>
   </div>
 </div>
+
 <div id="tabs">
   <div class="tab active" onclick="switchTab('malla')">Pozos</div>
   <div class="tab" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" onclick="switchTab('upload')">Cargar Datos</div>
 </div>
+
 <div id="toolbar">
   <div class="tbar-row">
     <div class="fg"><label>Fase</label><div id="fase-chips" style="display:flex;gap:4px"></div></div>
@@ -161,6 +159,7 @@ select:focus{outline:none;border-color:var(--accent2)}
       <label>Color por</label>
       <div style="display:flex;gap:4px">
         <div class="cm-btn active" data-m="mse" onclick="setColor(this)">MSE</div>
+        <div class="cm-btn" data-m="msecat" onclick="setColor(this)">MSE Cat</div>
         <div class="cm-btn" data-m="rop" onclick="setColor(this)">ROP</div>
         <div class="cm-btn" data-m="equipo" onclick="setColor(this)">Equipo</div>
       </div>
@@ -175,28 +174,25 @@ select:focus{outline:none;border-color:var(--accent2)}
 </div>
 
 <div id="content">
-  <!-- POZOS -->
   <div class="view active" id="view-malla">
     <div id="map-wrap">
       <canvas id="map-canvas"></canvas>
       <div id="map-stats">
         <div class="ms-row">
-          <div class="ms-item"><div class="ml">Pozos visibles</div><div class="mv" id="ms-n" style="color:var(--accent2)">—</div></div>
-          <div class="ms-item"><div class="ml">MSE promedio</div><div class="mv" id="ms-mse" style="color:var(--warn)">—</div></div>
-          <div class="ms-item"><div class="ml">ROP avg</div><div class="mv" id="ms-rop" style="color:var(--accent3)">—</div></div>
+          <div class="ms-item"><div class="ml">Pozos</div><div class="mv" id="ms-n" style="color:var(--accent2)">—</div></div>
+          <div class="ms-item"><div class="ml">MSE prom.</div><div class="mv" id="ms-mse" style="color:var(--warn)">—</div></div>
+          <div class="ms-item"><div class="ml">ROP prom.</div><div class="mv" id="ms-rop" style="color:var(--accent3)">—</div></div>
         </div>
       </div>
       <div id="tooltip"></div>
       <div id="map-legend">
         <div class="lt" id="leg-title">MSE (dureza)</div>
         <div id="leg-gradient-wrap">
-          <div class="leg-gradient" id="leg-bar" style="background:linear-gradient(to right,#56d364,#e3b341,#f85149)"></div>
-          <div class="leg-scale">
-            <span id="leg-v1">850</span><span id="leg-v2">3.400</span><span id="leg-v3">6.800</span><span id="leg-v4">11.700</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:3px">
-            <span style="font-size:10px;color:var(--text3)">Blando</span>
-            <span style="font-size:10px;color:var(--text3)">Duro</span>
+          <div class="leg-gradient" id="leg-bar"></div>
+          <div class="leg-scale"><span id="lv1"></span><span id="lv2"></span><span id="lv3"></span><span id="lv4"></span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:2px">
+            <span style="font-size:10px;color:var(--text3)" id="leg-lo">Blando</span>
+            <span style="font-size:10px;color:var(--text3)" id="leg-hi">Duro</span>
           </div>
         </div>
         <div id="leg-cats-wrap" style="display:none" class="leg-cats"></div>
@@ -222,7 +218,7 @@ select:focus{outline:none;border-color:var(--accent2)}
             <span class="crumb b" id="dc-b"></span>
             <span class="crumb p" id="dc-p"></span>
           </div>
-          <div id="hardness-pill"></div>
+          <div id="mse-cat-wrap"></div>
         </div>
         <div class="det-body">
           <div class="det-sec">
@@ -253,12 +249,11 @@ select:focus{outline:none;border-color:var(--accent2)}
     </div>
   </div>
 
-  <!-- DASHBOARD -->
   <div class="view" id="view-dashboard">
     <div class="dash-filters">
-      <label>Filtrar dashboard</label>
+      <label>Filtrar</label>
       <div class="fg"><label>Fase</label>
-        <select id="df-fase" onchange="renderDashboard()">
+        <select id="df-fase" onchange="onDashFaseChange()">
           <option value="">Todas</option>
           <option>F19</option><option>F21</option><option>H01</option><option>H02</option><option>H05</option>
         </select>
@@ -272,20 +267,23 @@ select:focus{outline:none;border-color:var(--accent2)}
           <option>PER04</option><option>PER08</option><option>PER10</option><option>PER11</option>
         </select>
       </div>
-      <button class="btn" onclick="document.getElementById('df-fase').value='';document.getElementById('df-banco').value='';document.getElementById('df-eq').value='';renderDashboard()">Limpiar</button>
+      <button class="btn" onclick="clearDashFilters()">Limpiar</button>
     </div>
     <div class="kpi-grid" id="kpi-grid"></div>
     <div class="chart-row">
       <div class="chart-card"><div class="ct" id="ch-title1">MSE por Fase</div><canvas id="ch-mse-grupo" style="max-height:200px"></canvas></div>
-      <div class="chart-card"><div class="ct">Rendimiento por Equipo (m/hr)</div><canvas id="ch-rend" style="max-height:200px"></canvas></div>
+      <div class="chart-card"><div class="ct" id="ch-title2">MSE por Malla</div><canvas id="ch-mse-malla" style="max-height:200px"></canvas></div>
     </div>
     <div class="chart-row">
-      <div class="chart-card"><div class="ct">Distribución MSE</div><canvas id="ch-hist" style="max-height:200px"></canvas></div>
+      <div class="chart-card"><div class="ct">Rendimiento por Equipo (m/hr)</div><canvas id="ch-rend" style="max-height:200px"></canvas></div>
+      <div class="chart-card"><div class="ct">Distribución MSE categórico</div><canvas id="ch-msecat" style="max-height:200px"></canvas></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card"><div class="ct">Distribución MSE continuo</div><canvas id="ch-hist" style="max-height:200px"></canvas></div>
       <div class="chart-card"><div class="ct">ROP vs MSE</div><canvas id="ch-scatter" style="max-height:200px"></canvas></div>
     </div>
   </div>
 
-  <!-- UPLOAD -->
   <div class="view" id="view-upload">
     <div class="upload-card">
       <h3>Configuración Supabase</h3>
@@ -332,14 +330,30 @@ const SB_URL='https://amuerztvihsfsbegmswo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtdWVyenR2aWhzZnNiZWdtc3dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NjgxOTMsImV4cCI6MjA4OTQ0NDE5M30.c04vWeFJROsHZ_6r89w5ztQ1wanpklVLpbuNT8wwVkA';
 const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
-// ─── CONSTANTS ───
+// ═══ MSE CATEGORIES ═══
+const MSE_CATS=[
+  {lo:0,    hi:2000,  label:'Muy blando', short:'MB', bg:'#14532d', border:'#4ade80', text:'#4ade80'},
+  {lo:2000, hi:2700,  label:'Blando',     short:'B',  bg:'#166534', border:'#86efac', text:'#86efac'},
+  {lo:2700, hi:3400,  label:'Moderado −', short:'M-', bg:'#713f12', border:'#fde68a', text:'#fde68a'},
+  {lo:3400, hi:4200,  label:'Moderado +', short:'M+', bg:'#78350f', border:'#fbbf24', text:'#fbbf24'},
+  {lo:4200, hi:5200,  label:'Duro',       short:'D',  bg:'#7c2d12', border:'#f97316', text:'#f97316'},
+  {lo:5200, hi:7000,  label:'Muy duro',   short:'MD', bg:'#991b1b', border:'#ef4444', text:'#ef4444'},
+  {lo:7000, hi:999999,label:'Extremo',    short:'EX', bg:'#450a0a', border:'#991b1b', text:'#fca5a5'},
+];
+
+function getMseCat(mse){
+  if(!mse) return null;
+  return MSE_CATS.find(c=>mse>=c.lo&&mse<c.hi)||MSE_CATS[MSE_CATS.length-1];
+}
+
+// ═══ CONSTANTS ═══
 const MSE_MIN=852,MSE_MAX=11705;
 const EQ_COLORS={PER04:'#79c0ff',PER08:'#56d364',PER10:'#f0883e',PER11:'#bc8cff'};
 const EQ_LIST=['PER04','PER08','PER10','PER11'];
-// Large fases that should auto-select first banco
 const LARGE_FASES=['H01','H05'];
+const FASE_COLORS={F19:'#79c0ff',F21:'#bc8cff',H01:'#f0883e',H02:'#56d364',H05:'#ff7b72'};
 
-// ─── STATE ───
+// ═══ STATE ═══
 let HOLES=[],POLYS=[],filtered=[];
 let activeFase=null,activeBanco=null,activePatio=null;
 let colorMode='mse';
@@ -347,34 +361,29 @@ let mapState={ox:0,oy:0,sc:1};
 let isDrag=false,lx=0,ly=0,selHole=null,profChart=null;
 let hierarchy={};
 const dCharts={};
-let dashData=null; // cached dashboard data
+let dashData=null;
 
-// ─── OUTLIER FILTER (3×IQR on X and Y) ───
+// ═══ OUTLIER FILTER ═══
 function filterOutliers(holes){
-  if(holes.length<10)return holes;
+  if(holes.length<8) return holes;
   const xs=holes.map(h=>h.x).sort((a,b)=>a-b);
   const ys=holes.map(h=>h.y).sort((a,b)=>a-b);
   const n=xs.length;
   const xq1=xs[Math.floor(n/4)],xq3=xs[Math.floor(3*n/4)];
   const yq1=ys[Math.floor(n/4)],yq3=ys[Math.floor(3*n/4)];
-  const xiqr=xq3-xq1,yiqr=yq3-yq1;
-  const xlo=xq1-3*xiqr,xhi=xq3+3*xiqr;
-  const ylo=yq1-3*yiqr,yhi=yq3+3*yiqr;
-  const clean=holes.filter(h=>h.x>=xlo&&h.x<=xhi&&h.y>=ylo&&h.y<=yhi);
-  const removed=holes.length-clean.length;
-  if(removed>0)console.log(`Outliers removidos: ${removed}`);
-  return clean;
+  const xi=xq3-xq1,yi=yq3-yq1;
+  return holes.filter(h=>h.x>=xq1-3*xi&&h.x<=xq3+3*xi&&h.y>=yq1-3*yi&&h.y<=yq3+3*yi);
 }
 
-// ─── HIERARCHY ───
+// ═══ HIERARCHY ═══
 function buildHierarchy(holes){
   const h={};
   holes.forEach(hole=>{
     const p=hole.id.split('-');
-    if(p.length<3)return;
+    if(p.length<3) return;
     const[fase,banco,patio]=p;
-    if(!h[fase])h[fase]={};
-    if(!h[fase][banco])h[fase][banco]=new Set();
+    if(!h[fase]) h[fase]={};
+    if(!h[fase][banco]) h[fase][banco]=new Set();
     h[fase][banco].add(patio);
   });
   Object.keys(h).forEach(f=>Object.keys(h[f]).forEach(b=>{h[f][b]=[...h[f][b]].sort();}));
@@ -382,77 +391,97 @@ function buildHierarchy(holes){
 }
 
 function renderFaseChips(){
-  const fases=Object.keys(hierarchy).sort();
-  document.getElementById('fase-chips').innerHTML=fases.map(f=>
+  document.getElementById('fase-chips').innerHTML=Object.keys(hierarchy).sort().map(f=>
     `<div class="chip${activeFase===f?' af':''}" onclick="selectFase('${f}')">${f}</div>`
   ).join('');
 }
+
 function renderBancoChips(){
   const el=document.getElementById('banco-chips');
-  if(!activeFase||!hierarchy[activeFase]){el.innerHTML='<span style="font-size:11px;color:var(--text3)">— elige fase —</span>';return;}
+  if(!activeFase||!hierarchy[activeFase]){
+    el.innerHTML='<span style="font-size:11px;color:var(--text3)">— elige fase —</span>';return;
+  }
   const bancos=Object.keys(hierarchy[activeFase]).sort();
   el.innerHTML=`<div class="chip${!activeBanco?' ab':''}" onclick="selectBanco(null)">Todos</div>`+
     bancos.map(b=>`<div class="chip${activeBanco===b?' ab':''}" onclick="selectBanco('${b}')">${b}</div>`).join('');
 }
+
 function renderPatioChips(){
   const el=document.getElementById('patio-chips');
-  if(!activeFase||!activeBanco){el.innerHTML='<span style="font-size:11px;color:var(--text3)">— elige banco —</span>';return;}
+  if(!activeFase||!activeBanco){
+    el.innerHTML='<span style="font-size:11px;color:var(--text3)">— elige banco —</span>';return;
+  }
   const patios=hierarchy[activeFase]?.[activeBanco]||[];
   el.innerHTML=`<div class="chip${!activePatio?' ap':''}" onclick="selectPatio(null)">Todos</div>`+
     patios.map(p=>`<div class="chip${activePatio===p?' ap':''}" onclick="selectPatio('${p}')">${p}</div>`).join('');
 }
 
-// ─── SELECTIONS ───
+// ═══ SELECTIONS — FIX: each level resets levels below ═══
 async function selectFase(f){
-  // Reset all filters when changing fase
   activeFase=f; activeBanco=null; activePatio=null;
   document.getElementById('f-eq').value='';
   renderFaseChips(); renderBancoChips(); renderPatioChips();
   await fetchHoles();
 }
+
 function selectBanco(b){
+  // FIX: properly reset activeBanco and activePatio
   activeBanco=b; activePatio=null;
   renderBancoChips(); renderPatioChips();
   applyLocal();
 }
+
 function selectPatio(p){
   activePatio=p;
   renderPatioChips();
   applyLocal();
 }
-function reloadCurrent(){if(activeFase)fetchHoles();}
 
-// ─── FETCH ───
+function reloadCurrent(){ if(activeFase) fetchHoles(); }
+
+// ═══ FETCH ═══
 async function fetchHoles(){
-  if(!activeFase)return;
+  if(!activeFase) return;
   setOverlay(true,'Cargando fase '+activeFase+'...',10);
   try{
     const{data,error}=await sb.from('pozos')
       .select('acq_hole,fase,patio,equipo,x_real,y_real,z_real,depth_real,rend_ope,status,mse_avg,rop_avg,feed_avg,rpm_avg,torq_avg')
       .eq('fase',activeFase).not('x_real','is',null).not('mse_avg','is',null).limit(100000);
-    if(error)throw error;
+    if(error) throw error;
+
     setOverlay(true,`Procesando ${data.length.toLocaleString()} pozos...`,65);
+
+    // Parse and add banco/patioCode/msecat
     const raw=data.map(h=>{
       const pts=h.acq_hole.split('-');
-      return{id:h.acq_hole,fase:h.fase,patio:h.patio,equipo:h.equipo,
-        banco:pts[1]||null,patioCode:pts[2]||null,
-        x:h.x_real,y:h.y_real,z:h.z_real,
-        prof:h.depth_real,rendOpe:h.rend_ope,status:h.status,
-        mse:h.mse_avg,rop:h.rop_avg,feed:h.feed_avg,rpm:h.rpm_avg,torq:h.torq_avg};
+      const eq=h.equipo&&h.equipo.trim()!==''?h.equipo.trim():null;
+      return{
+        id:h.acq_hole, fase:h.fase, patio:h.patio,
+        equipo:eq,  // null if missing
+        banco:pts[1]||null, patioCode:pts[2]||null,
+        x:h.x_real, y:h.y_real, z:h.z_real,
+        prof:h.depth_real, rendOpe:h.rend_ope, status:h.status,
+        mse:h.mse_avg, rop:h.rop_avg, feed:h.feed_avg, rpm:h.rpm_avg, torq:h.torq_avg,
+        mseCat:getMseCat(h.mse_avg)
+      };
     });
-    // Filter outliers per banco group
+
+    // Filter outliers per banco
     const byBanco={};
     raw.forEach(h=>{if(!byBanco[h.banco])byBanco[h.banco]=[];byBanco[h.banco].push(h);});
     HOLES=Object.values(byBanco).flatMap(g=>filterOutliers(g));
+
     buildHierarchy(HOLES);
+
     // Load polygons
     const{data:polys}=await sb.from('polygons').select('fase,vertices').eq('fase',activeFase);
     POLYS=polys||[];
+
     // Auto-select first banco for large fases
-    if(LARGE_FASES.includes(activeFase)){
-      const firstBanco=Object.keys(hierarchy[activeFase]||{}).sort()[0];
-      if(firstBanco){activeBanco=firstBanco;}
+    if(LARGE_FASES.includes(activeFase)&&!activeBanco){
+      activeBanco=Object.keys(hierarchy[activeFase]||{}).sort()[0]||null;
     }
+
     renderFaseChips(); renderBancoChips(); renderPatioChips();
     setOverlay(true,'Renderizando...',90);
     applyLocal();
@@ -468,9 +497,9 @@ async function fetchHoles(){
 function applyLocal(){
   const eq=document.getElementById('f-eq').value;
   filtered=HOLES.filter(h=>{
-    if(activeBanco&&h.banco!==activeBanco)return false;
-    if(activePatio&&h.patioCode!==activePatio)return false;
-    if(eq&&h.equipo!==eq)return false;
+    if(activeBanco&&h.banco!==activeBanco) return false;
+    if(activePatio&&h.patioCode!==activePatio) return false;
+    if(eq&&h.equipo!==eq) return false;
     return true;
   });
   resetView();
@@ -485,80 +514,92 @@ function updateStats(){
   const mses=h.filter(x=>x.mse).map(x=>x.mse);
   const rops=h.filter(x=>x.rop).map(x=>x.rop);
   const rends=h.filter(x=>x.rendOpe).map(x=>x.rendOpe);
-  if(mses.length)document.getElementById('hs-mse').textContent=Math.round(mses.reduce((a,b)=>a+b)/mses.length).toLocaleString();
-  if(rops.length)document.getElementById('hs-rop').textContent=(rops.reduce((a,b)=>a+b)/rops.length).toFixed(2);
-  if(rends.length)document.getElementById('hs-rend').textContent=(rends.reduce((a,b)=>a+b)/rends.length).toFixed(1);
+  if(mses.length) document.getElementById('hs-mse').textContent=Math.round(mses.reduce((a,b)=>a+b)/mses.length).toLocaleString();
+  if(rops.length) document.getElementById('hs-rop').textContent=(rops.reduce((a,b)=>a+b)/rops.length).toFixed(2);
+  if(rends.length) document.getElementById('hs-rend').textContent=(rends.reduce((a,b)=>a+b)/rends.length).toFixed(1);
 }
 
 function updateMapStats(){
   const h=filtered;
-  if(!h.length)return;
+  if(!h.length) return;
   document.getElementById('map-stats').style.display='block';
   document.getElementById('ms-n').textContent=h.length.toLocaleString();
   const mses=h.filter(x=>x.mse).map(x=>x.mse);
   const rops=h.filter(x=>x.rop).map(x=>x.rop);
-  if(mses.length)document.getElementById('ms-mse').textContent=Math.round(mses.reduce((a,b)=>a+b)/mses.length).toLocaleString();
-  if(rops.length)document.getElementById('ms-rop').textContent=(rops.reduce((a,b)=>a+b)/rops.length).toFixed(2)+' m/min ('+(rops.reduce((a,b)=>a+b)/rops.length*60).toFixed(0)+' m/hr)';
+  if(mses.length) document.getElementById('ms-mse').textContent=Math.round(mses.reduce((a,b)=>a+b)/mses.length).toLocaleString();
+  if(rops.length){
+    const avg=rops.reduce((a,b)=>a+b)/rops.length;
+    document.getElementById('ms-rop').textContent=avg.toFixed(2)+' ('+Math.round(avg*60)+' m/hr)';
+  }
 }
 
-// ─── CANVAS ───
+// ═══ CANVAS ═══
 const canvas=document.getElementById('map-canvas');
 const ctx=canvas.getContext('2d');
 
-function resizeCanvas(){const w=document.getElementById('map-wrap');canvas.width=w.clientWidth;canvas.height=w.clientHeight;}
+function resizeCanvas(){
+  const w=document.getElementById('map-wrap');
+  canvas.width=w.clientWidth; canvas.height=w.clientHeight;
+}
 
 function worldToScreen(x,y){
   const h=filtered.filter(h=>h.x&&h.y);
-  if(!h.length)return{sx:0,sy:0};
+  if(!h.length) return{sx:0,sy:0};
   const xs=h.map(h=>h.x),ys=h.map(h=>h.y);
   const xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys),yMax=Math.max(...ys);
   const mg=48,w=canvas.width,ch=canvas.height;
-  const xR=xMax-xMin||1,yR=yMax-yMin||1;
-  const scX=(w-mg*2)/xR,scY=(ch-mg*2)/yR,sc=Math.min(scX,scY);
-  const offX=(w-xR*sc)/2,offY=(ch-yR*sc)/2;
+  const scX=(w-mg*2)/(xMax-xMin||1),scY=(ch-mg*2)/(yMax-yMin||1),sc=Math.min(scX,scY);
+  const offX=(w-(xMax-xMin)*sc)/2,offY=(ch-(yMax-yMin)*sc)/2;
   const bx=offX+(x-xMin)*sc,by=offY+(yMax-y)*sc;
   return{sx:mapState.ox+(bx-w/2)*mapState.sc+w/2,sy:mapState.oy+(by-ch/2)*mapState.sc+ch/2};
 }
 
-function mseColor(v){
-  if(!v)return'#3a3a3a';
+function mseGradColor(v){
+  if(!v) return '#3a3a3a';
   const t=Math.max(0,Math.min(1,(v-MSE_MIN)/(MSE_MAX-MSE_MIN)));
   if(t<.5){const u=t*2;return`rgb(${Math.round(86+(227-86)*u)},${Math.round(211+(179-211)*u)},${Math.round(100+(65-100)*u)})`;}
   const u=(t-.5)*2;return`rgb(${Math.round(227+(248-227)*u)},${Math.round(179+(81-179)*u)},${Math.round(65+(73-65)*u)})`;
 }
 function ropColor(v){
-  if(!v)return'#3a3a3a';
+  if(!v) return '#3a3a3a';
   const t=Math.max(0,Math.min(1,(v-.3)/4));
   return`rgb(${Math.round(248-(248-86)*t)},${Math.round(81+(211-81)*t)},${Math.round(73+(100-73)*t)})`;
 }
 function holeColor(h){
-  if(colorMode==='mse')return mseColor(h.mse);
-  if(colorMode==='rop')return ropColor(h.rop);
-  return EQ_COLORS[h.equipo]||'#666';
+  if(colorMode==='mse') return mseGradColor(h.mse);
+  if(colorMode==='msecat') return h.mseCat?h.mseCat.border:'#3a3a3a';
+  if(colorMode==='rop') return ropColor(h.rop);
+  if(colorMode==='equipo') return h.equipo?EQ_COLORS[h.equipo]||'#666':'#444';
+  return mseGradColor(h.mse);
 }
 
 function renderMap(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(!filtered.length)return;
+  if(!filtered.length) return;
+
   // Polygons
   POLYS.forEach(poly=>{
     let v=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
-    if(!v||v.length<3)return;
+    if(!v||v.length<3) return;
     ctx.beginPath();
     v.forEach((pt,i)=>{const{sx,sy}=worldToScreen(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
     ctx.closePath();
-    ctx.strokeStyle='rgba(121,192,255,0.4)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.strokeStyle='rgba(121,192,255,0.35)';ctx.lineWidth=1.2;ctx.stroke();
     ctx.fillStyle='rgba(121,192,255,0.04)';ctx.fill();
   });
+
   // Holes
   const r=Math.max(2.5,Math.min(7,4*mapState.sc));
   filtered.forEach(h=>{
-    if(!h.x||!h.y)return;
+    if(!h.x||!h.y) return;
     const{sx,sy}=worldToScreen(h.x,h.y);
-    if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r)return;
+    if(sx<-r||sx>canvas.width+r||sy<-r||sy>canvas.height+r) return;
     ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
     ctx.fillStyle=holeColor(h);ctx.fill();
-    if(selHole?.id===h.id){ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}
+    if(selHole?.id===h.id){
+      ctx.beginPath();ctx.arc(sx,sy,r+3,0,Math.PI*2);
+      ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
   });
   updateLegend();
 }
@@ -566,27 +607,40 @@ function renderMap(){
 function updateLegend(){
   const gw=document.getElementById('leg-gradient-wrap');
   const cw=document.getElementById('leg-cats-wrap');
-  if(colorMode==='equipo'){
-    gw.style.display='none';cw.style.display='flex';
-    document.getElementById('leg-title').textContent='Equipo';
-    cw.innerHTML=EQ_LIST.map(e=>`<div class="leg-cat"><div class="leg-dot" style="background:${EQ_COLORS[e]}"></div><span class="leg-cat-lbl">${e}</span></div>`).join('');
-  } else {
+  const lt=document.getElementById('leg-title');
+
+  if(colorMode==='mse'){
     gw.style.display='block';cw.style.display='none';
-    if(colorMode==='mse'){
-      document.getElementById('leg-title').textContent='MSE (dureza)';
-      document.getElementById('leg-bar').style.background='linear-gradient(to right,#56d364,#e3b341,#f85149)';
-      document.getElementById('leg-v1').textContent='850';
-      document.getElementById('leg-v2').textContent='3.400';
-      document.getElementById('leg-v3').textContent='6.800';
-      document.getElementById('leg-v4').textContent='11.700';
-    } else {
-      document.getElementById('leg-title').textContent='ROP (velocidad de penetración)';
-      document.getElementById('leg-bar').style.background='linear-gradient(to right,#f85149,#e3b341,#56d364)';
-      document.getElementById('leg-v1').textContent='0.3';
-      document.getElementById('leg-v2').textContent='1.5';
-      document.getElementById('leg-v3').textContent='3.0';
-      document.getElementById('leg-v4').textContent='>4';
-    }
+    lt.textContent='MSE (gradiente)';
+    document.getElementById('leg-bar').style.background='linear-gradient(to right,#56d364,#e3b341,#f85149)';
+    document.getElementById('lv1').textContent='850';
+    document.getElementById('lv2').textContent='3.400';
+    document.getElementById('lv3').textContent='6.800';
+    document.getElementById('lv4').textContent='11.700';
+    document.getElementById('leg-lo').textContent='Blando';
+    document.getElementById('leg-hi').textContent='Duro';
+  } else if(colorMode==='msecat'){
+    gw.style.display='none';cw.style.display='flex';
+    lt.textContent='MSE categórico';
+    cw.innerHTML=MSE_CATS.map(c=>
+      `<div class="leg-cat"><div class="leg-dot" style="background:${c.border}"></div><span style="color:${c.text};font-size:10px">${c.label}</span><span style="color:var(--text3);font-size:10px;margin-left:auto">${c.lo===0?'<2k':c.hi===999999?'>7k':c.lo/1000+'k'}</span></div>`
+    ).join('');
+  } else if(colorMode==='rop'){
+    gw.style.display='block';cw.style.display='none';
+    lt.textContent='ROP (velocidad)';
+    document.getElementById('leg-bar').style.background='linear-gradient(to right,#f85149,#e3b341,#56d364)';
+    document.getElementById('lv1').textContent='0.3';
+    document.getElementById('lv2').textContent='1.5';
+    document.getElementById('lv3').textContent='3.0';
+    document.getElementById('lv4').textContent='>4';
+    document.getElementById('leg-lo').textContent='Lento (18 m/hr)';
+    document.getElementById('leg-hi').textContent='Rápido (>240 m/hr)';
+  } else if(colorMode==='equipo'){
+    gw.style.display='none';cw.style.display='flex';
+    lt.textContent='Equipo';
+    cw.innerHTML=EQ_LIST.map(e=>
+      `<div class="leg-cat"><div class="leg-dot" style="background:${EQ_COLORS[e]}"></div><span style="color:var(--text2)">${e}</span></div>`
+    ).join('')+'<div class="leg-cat"><div class="leg-dot" style="background:#444"></div><span style="color:var(--text3)">Sin equipo</span></div>';
   }
 }
 
@@ -596,6 +650,11 @@ function setColor(el){
 }
 function zoom(f){mapState.sc*=f;renderMap();}
 function resetView(){mapState={ox:0,oy:0,sc:1};}
+function setOverlay(show,text,pct){
+  const ov=document.getElementById('map-overlay');
+  ov.classList.toggle('hidden',!show);
+  if(show){document.getElementById('ov-spin').style.display='block';document.getElementById('ov-text').textContent=text;document.getElementById('ov-bar').style.width=(pct||0)+'%';}
+}
 
 // Canvas events
 canvas.addEventListener('mousedown',e=>{isDrag=false;lx=e.clientX;ly=e.clientY;});
@@ -609,52 +668,46 @@ canvas.addEventListener('mousemove',e=>{
   filtered.forEach(h=>{if(!h.x||!h.y)return;const{sx,sy}=worldToScreen(h.x,h.y);const d=Math.hypot(sx-mx,sy-my);if(d<minD){minD=d;found=h;}});
   const tt=document.getElementById('tooltip');
   if(found){
-    tt.style.display='block';
-    let left=mx+14,top=my-6;
-    if(left+190>canvas.width)left=mx-200;
-    tt.style.left=left+'px';tt.style.top=top+'px';
     const col=holeColor(found);
-    const mseClass=found.mse<2700?'Blando':found.mse<4500?'Moderado':'Duro';
+    const cat=found.mseCat;
+    let left=mx+14,top=my-6;
+    if(left+200>canvas.width)left=mx-210;
+    tt.style.display='block';tt.style.left=left+'px';tt.style.top=top+'px';
     tt.innerHTML=`<div class="tt-id">${found.id}</div>
       <div class="tt-row"><span class="tt-lbl">Banco</span><span class="tt-val">${found.banco||'—'}</span></div>
       <div class="tt-row"><span class="tt-lbl">Patio</span><span class="tt-val">${found.patioCode||'—'}</span></div>
-      <div class="tt-row"><span class="tt-lbl">Equipo</span><span class="tt-val" style="color:${EQ_COLORS[found.equipo]||'var(--text)'}">${found.equipo||'—'}</span></div>
+      <div class="tt-row"><span class="tt-lbl">Equipo</span><span class="tt-val" style="color:${found.equipo?EQ_COLORS[found.equipo]||'var(--text)':'var(--text3)'}">${found.equipo||'Sin datos'}</span></div>
       <div class="tt-row"><span class="tt-lbl">Prof.</span><span class="tt-val">${found.prof?found.prof.toFixed(1)+'m':'—'}</span></div>
-      <div class="tt-row"><span class="tt-lbl">ROP</span><span class="tt-val">${found.rop?found.rop.toFixed(2)+' m/min ('+Math.round(found.rop*60)+' m/hr)':'—'}</span></div>
-      <div class="tt-row"><span class="tt-lbl">MSE</span><span class="tt-val" style="color:${col}">${found.mse?Math.round(found.mse).toLocaleString()+' — '+mseClass:'—'}</span></div>`;
-  } else tt.style.display='none';
+      <div class="tt-row"><span class="tt-lbl">ROP</span><span class="tt-val">${found.rop?found.rop.toFixed(2)+' ('+Math.round(found.rop*60)+' m/hr)':'—'}</span></div>
+      <div class="tt-row"><span class="tt-lbl">MSE</span><span class="tt-val" style="color:${cat?cat.border:'var(--text)'}">${found.mse?Math.round(found.mse).toLocaleString()+' — '+(cat?cat.label:''):'—'}</span></div>`;
+  }else tt.style.display='none';
 });
 canvas.addEventListener('click',e=>{
   if(isDrag)return;
   const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
   let found=null,minD=10;
   filtered.forEach(h=>{if(!h.x||!h.y)return;const{sx,sy}=worldToScreen(h.x,h.y);const d=Math.hypot(sx-mx,sy-my);if(d<minD){minD=d;found=h;}});
-  if(found)selectHole(found);
+  if(found) selectHole(found);
 });
 canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.15:.87);},{passive:false});
 
-function setOverlay(show,text,pct){
-  const ov=document.getElementById('map-overlay');
-  ov.classList.toggle('hidden',!show);
-  if(show){document.getElementById('ov-spin').style.display='block';document.getElementById('ov-text').textContent=text;document.getElementById('ov-bar').style.width=(pct||0)+'%';}
-}
-
-// ─── SELECT HOLE ───
+// ═══ SELECT HOLE ═══
 async function selectHole(h){
   selHole=h;renderMap();
   document.getElementById('empty-state').style.display='none';
   document.getElementById('det-content').style.display='flex';
   document.getElementById('det-id').textContent=h.id;
-  document.getElementById('det-sub').textContent=`${h.equipo||'—'} · ${h.status||'—'}`;
+  document.getElementById('det-sub').textContent=`${h.equipo||'Equipo sin datos'} · ${h.status||'—'}`;
   document.getElementById('dc-f').textContent='Fase '+h.fase;
   document.getElementById('dc-b').textContent='Banco '+h.banco;
   document.getElementById('dc-p').textContent='Patio '+h.patioCode;
-  // Hardness pill
-  const hp=document.getElementById('hardness-pill');
-  if(h.mse){
-    const[label,bg,col]=h.mse<2700?['Roca Blanda','rgba(86,211,100,.15)','#56d364']:h.mse<4500?['Roca Moderada','rgba(227,179,65,.15)','#e3b341']:['Roca Dura','rgba(248,81,73,.15)','#f85149'];
-    hp.innerHTML=`<span class="hardness-pill" style="background:${bg};color:${col}">${label}</span>`;
-  }
+
+  // MSE category pill
+  const cat=h.mseCat;
+  document.getElementById('mse-cat-wrap').innerHTML=cat
+    ?`<span class="mse-cat-pill" style="background:${cat.bg};color:${cat.text};border:1px solid ${cat.border}">${cat.label} — MSE ${Math.round(h.mse).toLocaleString()}</span>`
+    :'';
+
   document.getElementById('d-prof').textContent=h.prof?h.prof.toFixed(1)+'m':'—';
   document.getElementById('d-rend').textContent=h.rendOpe?h.rendOpe.toFixed(1)+' m/hr':'—';
   document.getElementById('d-rop').textContent=h.rop?h.rop.toFixed(2)+' m/min ('+Math.round(h.rop*60)+' m/hr)':'—';
@@ -662,15 +715,15 @@ async function selectHole(h){
   document.getElementById('d-rpm').textContent=h.rpm?Math.round(h.rpm)+' RPM':'—';
   document.getElementById('d-torq').textContent=h.torq?h.torq.toFixed(2)+' kNm':'—';
   if(h.mse){
-    const col=h.mse<2700?'#56d364':h.mse<4500?'#e3b341':'#f85149';
+    const c=cat?cat.border:'#888';
     document.getElementById('d-mse').textContent=Math.round(h.mse).toLocaleString();
-    document.getElementById('d-mse').style.color=col;
+    document.getElementById('d-mse').style.color=c;
     document.getElementById('d-mse-bar').style.width=Math.min(100,((h.mse-MSE_MIN)/(MSE_MAX-MSE_MIN))*100)+'%';
-    document.getElementById('d-mse-bar').style.background=col;
+    document.getElementById('d-mse-bar').style.background=c;
   }
   const{data}=await sb.from('mwd_signals').select('depth_from,penetration_rate,mse').eq('acq_hole',h.id).order('depth_from').limit(500);
   if(data&&data.length){
-    if(profChart)profChart.destroy();
+    if(profChart) profChart.destroy();
     profChart=new Chart(document.getElementById('prof-chart'),{type:'line',
       data:{labels:data.map(p=>(p.depth_from||0).toFixed(1)+'m'),datasets:[
         {label:'ROP m/min',data:data.map(p=>p.penetration_rate||0),borderColor:'#56d364',tension:.4,borderWidth:1.5,pointRadius:0,yAxisID:'y'},
@@ -685,98 +738,118 @@ async function selectHole(h){
   }
 }
 
-// ─── DASHBOARD ───
-function destroyChart(id){if(dCharts[id]){dCharts[id].destroy();delete dCharts[id];}}
+// ═══ DASHBOARD ═══
+function dc(id){if(dCharts[id]){dCharts[id].destroy();delete dCharts[id];}}
 
-// Populate banco dropdown when fase changes
-document.getElementById('df-fase').addEventListener('change',function(){
-  const fase=this.value;
+function onDashFaseChange(){
+  const fase=document.getElementById('df-fase').value;
   const bd=document.getElementById('df-banco');
   bd.innerHTML='<option value="">Todos</option>';
   if(fase&&hierarchy[fase]){
-    Object.keys(hierarchy[fase]).sort().forEach(b=>{
-      bd.innerHTML+=`<option value="${b}">${b}</option>`;
-    });
+    Object.keys(hierarchy[fase]).sort().forEach(b=>{bd.innerHTML+=`<option value="${b}">${b}</option>`;});
   }
   renderDashboard();
-});
+}
+
+function clearDashFilters(){
+  document.getElementById('df-fase').value='';
+  document.getElementById('df-banco').innerHTML='<option value="">Todos</option>';
+  document.getElementById('df-eq').value='';
+  renderDashboard();
+}
 
 async function renderDashboard(){
   const fase=document.getElementById('df-fase').value;
   const banco=document.getElementById('df-banco').value;
   const eq=document.getElementById('df-eq').value;
 
-  // Fetch if needed
   if(!dashData){
-    const{data}=await sb.from('pozos').select('acq_hole,fase,equipo,mse_avg,rop_avg,rend_ope').not('mse_avg','is',null).limit(200000);
-    dashData=data||[];
-    // Build hierarchy from dashData if not built yet
+    const{data}=await sb.from('pozos')
+      .select('acq_hole,fase,equipo,mse_avg,rop_avg,rend_ope')
+      .not('mse_avg','is',null).limit(200000);
+    dashData=(data||[]).map(h=>({...h,banco:h.acq_hole.split('-')[1],patio:h.acq_hole.split('-')[2],mseCat:getMseCat(h.mse_avg)}));
     if(!Object.keys(hierarchy).length) buildHierarchy(dashData.map(h=>({id:h.acq_hole})));
   }
 
   let h=dashData;
-  if(fase)h=h.filter(x=>x.fase===fase);
-  if(banco)h=h.filter(x=>x.acq_hole.split('-')[1]===banco);
-  if(eq)h=h.filter(x=>x.equipo===eq);
+  if(fase) h=h.filter(x=>x.fase===fase);
+  if(banco) h=h.filter(x=>x.banco===banco);
+  if(eq) h=h.filter(x=>x.equipo===eq);
 
+  const avg=arr=>arr.length?arr.reduce((a,b)=>a+b)/arr.length:0;
   const mses=h.filter(x=>x.mse_avg).map(x=>x.mse_avg);
   const rops=h.filter(x=>x.rop_avg).map(x=>x.rop_avg);
   const rends=h.filter(x=>x.rend_ope).map(x=>x.rend_ope);
-  const avg=arr=>arr.length?arr.reduce((a,b)=>a+b)/arr.length:0;
 
   document.getElementById('kpi-grid').innerHTML=[
-    {l:'Pozos',v:h.length.toLocaleString(),s:fase?'Fase '+fase+( banco?' Banco '+banco:''):' Todas las fases',c:'var(--accent2)'},
-    {l:'MSE Promedio',v:mses.length?Math.round(avg(mses)).toLocaleString():'—',s:'índice dureza',c:'var(--warn)'},
+    {l:'Pozos',v:h.length.toLocaleString(),s:fase?(fase+(banco?' B.'+banco:''))+' filtrado':'Todas las fases',c:'var(--accent2)'},
+    {l:'MSE Promedio',v:mses.length?Math.round(avg(mses)).toLocaleString():'—',s:mses.length?getMseCat(avg(mses))?.label||'':'',c:mses.length?getMseCat(avg(mses))?.border||'var(--warn)':'var(--warn)'},
     {l:'ROP Promedio',v:rops.length?avg(rops).toFixed(2)+' m/min':'—',s:rops.length?'≈ '+Math.round(avg(rops)*60)+' m/hr':'',c:'var(--accent3)'},
     {l:'Rendimiento',v:rends.length?avg(rends).toFixed(1)+' m/hr':'—',s:'operacional',c:'var(--purple)'}
   ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv" style="color:${k.c}">${k.v}</div><div class="ks">${k.s}</div></div>`).join('');
 
-  // Chart 1: MSE by fase OR by banco (if fase selected)
-  const groupKey = fase ? 'banco' : 'fase';
-  const groups = fase
-    ? [...new Set(h.map(x=>x.acq_hole.split('-')[1]))].sort()
-    : ['F19','F21','H01','H02','H05'];
-  const groupColors = fase
-    ? ['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#f85149']
-    : ['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72'];
-  document.getElementById('ch-title1').textContent = fase ? `MSE por Banco (${fase})` : 'MSE por Fase';
-  const groupMSE=groups.map(g=>{
-    const v=h.filter(x=>(fase?x.acq_hole.split('-')[1]:x.fase)===g&&x.mse_avg).map(x=>x.mse_avg);
-    return v.length?Math.round(avg(v)):0;
-  });
-  destroyChart('ch-mse-grupo');
+  // Chart 1: MSE por fase o banco
+  const groupKey=fase?'banco':'fase';
+  const groups=fase?[...new Set(h.map(x=>x.banco))].filter(Boolean).sort():['F19','F21','H01','H02','H05'];
+  const groupColors=fase?['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#f85149']:Object.values(FASE_COLORS);
+  document.getElementById('ch-title1').textContent=fase?`MSE por Banco (${fase+(banco?' > B.'+banco:'')})':'MSE por Fase`;
+  const groupMSE=groups.map(g=>{const v=h.filter(x=>x[groupKey]===g&&x.mse_avg).map(x=>x.mse_avg);return v.length?Math.round(avg(v)):0;});
+  dc('ch-mse-grupo');
   dCharts['ch-mse-grupo']=new Chart(document.getElementById('ch-mse-grupo'),{type:'bar',
     data:{labels:groups,datasets:[{data:groupMSE,backgroundColor:groupColors.slice(0,groups.length),borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
 
-  // Chart 2: Rendimiento por equipo
+  // Chart 2: MSE por malla (top 15)
+  const mallaMap={};
+  h.forEach(x=>{const k=`${x.fase}-${x.banco}-${x.patio}`;if(!mallaMap[k])mallaMap[k]=[];if(x.mse_avg)mallaMap[k].push(x.mse_avg);});
+  const mallaEntries=Object.entries(mallaMap)
+    .filter(([,v])=>v.length>=3)
+    .map(([k,v])=>({k,mse:Math.round(avg(v)),n:v.length}))
+    .sort((a,b)=>b.mse-a.mse).slice(0,15);
+  document.getElementById('ch-title2').textContent=`MSE por Malla (top ${mallaEntries.length})`;
+  dc('ch-mse-malla');
+  dCharts['ch-mse-malla']=new Chart(document.getElementById('ch-mse-malla'),{type:'bar',
+    data:{labels:mallaEntries.map(e=>e.k),datasets:[{data:mallaEntries.map(e=>e.mse),backgroundColor:mallaEntries.map(e=>getMseCat(e.mse)?.border||'#888'),borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+
+  // Chart 3: Rendimiento por equipo
   const rendEq=EQ_LIST.map(e=>{const v=h.filter(x=>x.equipo===e&&x.rend_ope).map(x=>x.rend_ope);return v.length?+avg(v).toFixed(1):0;});
-  destroyChart('ch-rend');
+  dc('ch-rend');
   dCharts['ch-rend']=new Chart(document.getElementById('ch-rend'),{type:'bar',
     data:{labels:EQ_LIST,datasets:[{data:rendEq,backgroundColor:EQ_LIST.map(e=>EQ_COLORS[e]),borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
 
-  // Chart 3: MSE histogram
+  // Chart 4: Distribución MSE categórico
+  const catCounts=MSE_CATS.map(c=>h.filter(x=>x.mse_avg>=c.lo&&x.mse_avg<c.hi).length);
+  dc('ch-msecat');
+  dCharts['ch-msecat']=new Chart(document.getElementById('ch-msecat'),{type:'bar',
+    data:{labels:MSE_CATS.map(c=>c.short),datasets:[{data:catCounts,backgroundColor:MSE_CATS.map(c=>c.border),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>{const c=MSE_CATS[ctx.dataIndex];return`${c.label}: ${ctx.raw} pozos (${((ctx.raw/h.length)*100).toFixed(1)}%)`;}}}
+    },
+    scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+
+  // Chart 5: Histograma MSE continuo
   const bins=[0,1500,2000,2500,3000,3500,4000,4500,5000,6000,8000,12000];
   const hist=new Array(bins.length-1).fill(0);
   mses.forEach(v=>{for(let i=0;i<bins.length-1;i++)if(v>=bins[i]&&v<bins[i+1]){hist[i]++;break;}});
-  destroyChart('ch-hist');
+  dc('ch-hist');
   dCharts['ch-hist']=new Chart(document.getElementById('ch-hist'),{type:'bar',
-    data:{labels:bins.slice(0,-1).map((b,i)=>`${(b/1000).toFixed(1)}k`),
-      datasets:[{data:hist,backgroundColor:bins.slice(0,-1).map(b=>b<2700?'#56d364':b<4500?'#e3b341':'#f85149'),borderRadius:2}]},
+    data:{labels:bins.slice(0,-1).map((b,i)=>`${(b/1000).toFixed(1)}k`),datasets:[{data:hist,backgroundColor:bins.slice(0,-1).map(b=>getMseCat(b+1)?.border||'#888'),borderRadius:2}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
 
-  // Chart 4: ROP vs MSE scatter
-  const scatterGroups=fase?groups:['F19','F21','H01','H02','H05'];
-  destroyChart('ch-scatter');
+  // Chart 6: ROP vs MSE scatter
+  dc('ch-scatter');
   dCharts['ch-scatter']=new Chart(document.getElementById('ch-scatter'),{type:'scatter',
-    data:{datasets:scatterGroups.map((g,i)=>({
-      label:g,
-      data:h.filter(x=>(fase?x.acq_hole.split('-')[1]:x.fase)===g&&x.mse_avg&&x.rop_avg).map(x=>({x:x.mse_avg,y:x.rop_avg})),
-      backgroundColor:(groupColors[i]||'#888')+'88',pointRadius:2
+    data:{datasets:['F19','F21','H01','H02','H05'].map((f,i)=>({
+      label:f,
+      data:h.filter(x=>x.fase===f&&x.mse_avg&&x.rop_avg).map(x=>({x:x.mse_avg,y:x.rop_avg})),
+      backgroundColor:Object.values(FASE_COLORS)[i]+'88',pointRadius:2
     }))},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{color:'#8b949e',font:{size:10},boxWidth:8,padding:6}}},
@@ -784,36 +857,36 @@ async function renderDashboard(){
         y:{title:{display:true,text:'ROP m/min',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
 }
 
-// ─── TABS ───
+// ═══ TABS ═══
 function switchTab(name){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['malla','dashboard','upload'][i]===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
-  if(name==='dashboard')renderDashboard();
+  if(name==='dashboard') renderDashboard();
   if(name==='malla'){setTimeout(()=>{resizeCanvas();renderMap();},10);}
 }
 
-// ─── UPLOAD ───
-const fQueues={pozos:[],mwd:[],arch:[]};
+// ═══ UPLOAD ═══
+const fQ={pozos:[],mwd:[],arch:[]};
 function dzDrag(e,el){e.preventDefault();el.classList.add('drag');}
 function dzLeave(el){el.classList.remove('drag');}
-function dzDrop(e,t){e.preventDefault();e.currentTarget.classList.remove('drag');handleFilesFromList(e.dataTransfer.files,t);}
-function handleFiles(inp,t){handleFilesFromList(inp.files,t);}
-function handleFilesFromList(files,t){for(const f of files)if(!fQueues[t].find(x=>x.name===f.name&&x.size===f.size))fQueues[t].push({file:f,name:f.name,size:f.size,status:'pending'});renderFL(t);}
-function renderFL(t){document.getElementById('fl-'+t).innerHTML=fQueues[t].map(f=>`<div class="file-item"><span class="fi-${f.status}">${f.status==='ok'?'✓':f.status==='err'?'✗':f.status==='uploading'?'↑':'○'}</span><span class="fn">${f.name}</span><span class="fs">${(f.size/1024).toFixed(0)} KB</span></div>`).join('');}
+function dzDrop(e,t){e.preventDefault();e.currentTarget.classList.remove('drag');hFL(e.dataTransfer.files,t);}
+function handleFiles(inp,t){hFL(inp.files,t);}
+function hFL(files,t){for(const f of files)if(!fQ[t].find(x=>x.name===f.name&&x.size===f.size))fQ[t].push({file:f,name:f.name,size:f.size,status:'pending'});rFL(t);}
+function rFL(t){document.getElementById('fl-'+t).innerHTML=fQ[t].map(f=>`<div class="file-item"><span class="fi-${f.status}">${f.status==='ok'?'✓':f.status==='err'?'✗':f.status==='uploading'?'↑':'○'}</span><span class="fn">${f.name}</span><span class="fs">${(f.size/1024).toFixed(0)} KB</span></div>`).join('');}
 function parseCSV(text){const l=text.split(/\r?\n/);const h=l[0].split(',').map(x=>x.trim().replace(/^\uFEFF/,''));return l.slice(1).filter(x=>x.trim()).map(l=>{const v=l.split(',');const o={};h.forEach((k,i)=>o[k]=(v[i]||'').trim());return o;});}
 function sf(v){const f=parseFloat(v);return isNaN(f)?null:f;}
 function sd(v){if(!v)return null;const ms=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];const m=v.match(/(\d+)-([A-Za-z]+)-(\d+)/);if(m){const mi=ms.indexOf(m[2].toLowerCase());if(mi>=0)return`${m[3]}-${String(mi+1).padStart(2,'0')}-${m[1].padStart(2,'0')}`;}const m2=v.match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
-function parsePozos(text,fn){return parseCSV(text).filter(r=>r.acqHole).map(r=>({acq_hole:r.acqHole.trim(),mesh:r.autPatio||null,fase:r.fase||null,patio:r.patio||null,equipo:r.equipment||null,x_real:sf(r.xReal),y_real:sf(r.yReal),z_real:sf(r.zReal),x_plan:sf(r.xPlan),y_plan:sf(r.yPlan),z_plan:sf(r.zPlan),date:sd(r.date),depth_plan:sf(r.depthPlan),depth_real:sf(r.depthReal),var_depth:sf(r.varDepth),status:r.status||null,rend_ope:sf(r.redndOpe),drilling_time:r.drillingTime||null,re_drilling:r.reDrilling==='TRUE',source_file:fn})).filter(r=>r.acq_hole);}
+function parsePozos(text,fn){return parseCSV(text).filter(r=>r.acqHole).map(r=>{const eq=(r.equipment||'').trim()||null;return{acq_hole:r.acqHole.trim(),mesh:r.autPatio||null,fase:r.fase||null,patio:r.patio||null,equipo:eq,x_real:sf(r.xReal),y_real:sf(r.yReal),z_real:sf(r.zReal),x_plan:sf(r.xPlan),y_plan:sf(r.yPlan),z_plan:sf(r.zPlan),date:sd(r.date),depth_plan:sf(r.depthPlan),depth_real:sf(r.depthReal),var_depth:sf(r.varDepth),status:r.status||null,rend_ope:sf(r.redndOpe),drilling_time:r.drillingTime||null,re_drilling:r.reDrilling==='TRUE',source_file:fn};}).filter(r=>r.acq_hole);}
 function parseMWD(text,fn){const PI2=2*Math.PI;return parseCSV(text).filter(r=>r.acqHole).map(r=>{const acq=r.acqHole.trim(),df=sf(r.from),dt=sf(r.to);if(!acq||df===null)return null;const rop=sf(r.penetrationRate),feed=sf(r.feedForce),rpm=sf(r.rotationSpeed),torq=sf(r.rotationTorque);let mse=null;if(rop&&rop>0.05&&feed&&feed>0&&rpm&&rpm>0&&torq)mse=Math.round(feed+(PI2*rpm*torq)/Math.max(rop,0.05));return{acq_hole:acq,depth:sf(r.depth),depth_from:df,depth_to:dt,penetration_rate:rop,flush_air_flow:sf(r.flushAirFlow),feed_force:feed,rotation_speed:rpm,rotation_torque:torq,mse};}).filter(Boolean);}
 function parseArchD(text,fn){const lm=text.match(/Layer:\s+(\S+)/);if(!lm)return null;const pid=lm[1].replace(/\r/,'');const verts=[...text.matchAll(/Point:\s+[01]\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/g)].map(m=>({x:parseFloat(m[1]),y:parseFloat(m[2]),z:parseFloat(m[3])}));if(!verts.length)return null;const texts=[...text.matchAll(/^Text:\s+(.+)$/gm)].map(m=>m[1].trim()).filter(Boolean);let mesh=null,blast_date=null,tonelaje=null,densidad=null,malla=null,taco=null,fc=null;for(const t of texts){if(/^[A-Z]\d{2}-\d{4}-\d{3}$/.test(t))mesh=t;else if(/\d{2}-\d{2}-\d{4}/.test(t))blast_date=t.replace(/(\d{2})-(\d{2})-(\d{4})/,'$3-$2-$1');else if(/TON:|TM/.test(t)){const n=t.match(/[\d.]+/);if(n)tonelaje=parseFloat(n[0]);}else if(/D:\s*[\d.]|g\/cc|Densidad/.test(t)){const n=t.match(/[\d.]+/);if(n)densidad=parseFloat(n[0]);}else if(/MALLA|Malla/.test(t)){const n=t.match(/[\d.]+[xX][\d.]+/);if(n)malla=n[0];}else if(/TACO|Taco/.test(t)){const n=t.match(/[\d.]+/);if(n)taco=n[0]+'m';}else if(/FC:/.test(t)){const n=t.match(/[\d.]+/);if(n)fc=parseFloat(n[0]);}}const fm=pid.match(/^([A-Z]\d{2})/);return{polygon_id:pid,mesh,fase:fm?fm[1]:null,elevation:verts[0]?.z,vertices:JSON.stringify(verts),blast_date,tonelaje,densidad,malla,taco,factor_carga:fc,source_file:fn};}
 async function uploadFiles(type){
-  const queue=fQueues[type];if(!queue.length)return;
+  const queue=fQ[type];if(!queue.length)return;
   const logEl=document.getElementById('log-'+type);logEl.style.display='block';logEl.textContent='';
   document.getElementById('pb-'+type).style.width='0%';
   let ok=0,err=0;
   for(let i=0;i<queue.length;i++){
-    const item=queue[i];item.status='uploading';renderFL(type);
+    const item=queue[i];item.status='uploading';rFL(type);
     document.getElementById('pb-'+type).style.width=Math.round((i/queue.length)*100)+'%';
     try{
       const text=await item.file.text();
@@ -827,10 +900,9 @@ async function uploadFiles(type){
         if(error){logEl.textContent+=`  Error: ${error.message}\n`;err++;}
         else ok+=Math.min(500,records.length-j);
       }
-      item.status='ok';
+      item.status='ok';if(type==='pozos')dashData=null;
     }catch(e){item.status='err';logEl.textContent+=`✗ ${e.message}\n`;err++;}
-    renderFL(type);logEl.scrollTop=logEl.scrollHeight;
-    if(type==='pozos'&&dashData)dashData=null; // invalidate cache
+    rFL(type);logEl.scrollTop=logEl.scrollHeight;
   }
   document.getElementById('pb-'+type).style.width='100%';
   logEl.textContent+=`\nListo: ${ok} ok, ${err} errores`;
@@ -842,12 +914,11 @@ async function testConn(){
   document.getElementById('conn-st').textContent=error?'✗ '+error.message:'✓ Conectado';
 }
 
-// ─── INIT ───
+// ═══ INIT ═══
 window.addEventListener('load',()=>{
   document.getElementById('cfg-url').value=SB_URL;
   document.getElementById('cfg-key').value=SB_KEY;
   resizeCanvas();
-  // Pre-load hierarchy for fase chips
   sb.from('pozos').select('acq_hole').not('x_real','is',null).limit(10000).then(({data})=>{
     if(data){buildHierarchy(data.map(h=>({id:h.acq_hole})));renderFaseChips();}
   });
