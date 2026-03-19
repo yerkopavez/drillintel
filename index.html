@@ -188,6 +188,7 @@ select:focus{outline:none;border-color:var(--accent2)}
       <button class="btn" onclick="zoom(1.25)">+</button>
       <button class="btn" onclick="zoom(.8)">−</button>
       <button class="btn" onclick="resetView();renderMap()">Reset</button>
+      <button class="btn" id="btn-projection" onclick="toggleProjection()" title="Proyectar polígonos al banco siguiente (-15m)" style="display:none">Proyección ▼</button>
       <button class="btn primary" onclick="reloadCurrent()">↻ Actualizar</button>
     </div>
   </div>
@@ -399,7 +400,82 @@ async function selectFase(f){
   renderFase();renderBanco();renderPatio();
   await fetchHoles();
 }
-function selectBanco(b){activeBanco=b;activePatio=null;renderBanco();renderPatio();applyLocal();}
+let projectionOn=false;
+let POLYS_PROJECTED=[];  // polygons projected to next banco
+
+function selectBanco(b){
+  activeBanco=b; activePatio=null;
+  renderBanco(); renderPatio();
+  // Show/hide projection button
+  document.getElementById('btn-projection').style.display=b?'inline-block':'none';
+  // Reset projection when changing banco
+  projectionOn=false;
+  document.getElementById('btn-projection').textContent='Proyección ▼';
+  document.getElementById('btn-projection').style.background='';
+  POLYS_PROJECTED=[];
+  // Reload polygons filtered by new banco
+  if(activeFase){
+    sb.from('polygons')
+      .select('fase,banco,patio,vertices,poly_type,polygon_id,elevation,tonelaje,densidad,malla')
+      .eq('fase',activeFase)
+      .then(({data})=>{
+        POLYS=(data||[]).filter(p=>!activeBanco||!p.banco||p.banco===activeBanco);
+        applyLocal();
+      });
+  } else applyLocal();
+}
+
+function toggleProjection(){
+  projectionOn=!projectionOn;
+  const btn=document.getElementById('btn-projection');
+  if(projectionOn){
+    btn.textContent='Proyección ▲';
+    btn.style.background='var(--purple)';
+    btn.style.borderColor='var(--purple)';
+    btn.style.color='#000';
+    buildProjection();
+  } else {
+    btn.textContent='Proyección ▼';
+    btn.style.background='';btn.style.borderColor='';btn.style.color='';
+    POLYS_PROJECTED=[];
+    renderMap();
+  }
+}
+
+function buildProjection(){
+  // Project current banco polygons to next banco (Z - 15m)
+  const nextBanco = activeBanco ? String(parseInt(activeBanco)-15) : null;
+  if(!nextBanco||!POLYS.length){
+    alert('Selecciona un banco con polígonos de cierre para proyectar');
+    projectionOn=false;return;
+  }
+  // Clone polygons shifting Z by -15m
+  POLYS_PROJECTED = POLYS
+    .filter(p=>p.poly_type==='cierre'||!p.poly_type)
+    .map(p=>{
+      let v = typeof p.vertices==='string'?JSON.parse(p.vertices):p.vertices;
+      return{
+        ...p,
+        polygon_id: p.polygon_id+'_PROJ',
+        poly_type:'proyeccion',
+        banco: nextBanco,
+        elevation: (p.elevation||0)-15,
+        vertices: JSON.stringify(v.map(pt=>({...pt,z:pt.z-15})))
+      };
+    });
+  renderMap();
+  // Show next banco MSE estimation in stats
+  const nextBancoHoles = HOLES.filter(h=>h.banco===nextBanco);
+  const stats = document.getElementById('map-stats');
+  if(nextBancoHoles.length){
+    const mses=nextBancoHoles.filter(x=>x.mse).map(x=>x.mse);
+    const avg=mses.length?Math.round(mses.reduce((a,b)=>a+b)/mses.length):null;
+    const cat=getCat(avg);
+    document.getElementById('ms-n').textContent=`Banco ${nextBanco}: ${nextBancoHoles.length} pozos`;
+    document.getElementById('ms-mse').textContent=avg?avg.toLocaleString()+' ('+cat?.label+')':'—';
+    stats.style.display='block';
+  }
+}
 function selectPatio(p){activePatio=p;renderPatio();applyLocal();}
 function reloadCurrent(){if(activeFase)fetchHoles();}
 
@@ -425,8 +501,14 @@ async function fetchHoles(){
     if(LARGE_FASES.includes(activeFase)&&!activeBanco){
       activeBanco=Object.keys(hierarchy[activeFase]||{}).sort()[0]||null;
     }
-    const{data:polys}=await sb.from('polygons').select('fase,vertices,poly_type,polygon_id').eq('fase',activeFase);
-    POLYS=polys||[];
+    const{data:polys}=await sb.from('polygons')
+      .select('fase,banco,patio,vertices,poly_type,polygon_id,elevation')
+      .eq('fase',activeFase);
+    // Filter by active banco if set — show only matching bank's polygons
+    POLYS=(polys||[]).filter(p=>{
+      if(!activeBanco) return true;
+      return !p.banco || p.banco===activeBanco;
+    });
     renderFase();renderBanco();renderPatio();
     setOv(true,'Renderizando...',90);
     applyLocal();
@@ -729,7 +811,14 @@ function pMWD(text,fn){const PI2=2*Math.PI;return pCSV(text).filter(r=>r.acqHole
 function pArchD(text,fn){
   const lm=text.match(/Layer:\s+(\S+)/);if(!lm)return null;
   const pid=lm[1].replace(/\r/,'');
-  // Extract ONLY the POLHED block — ignore TXTHED and other blocks
+  // Parse banco and patios from layer name
+  // Formats: H01-1430-022-CIERRE or H01-1430-01-02-CIERRE (combined)
+  const layerParts=pid.replace(/-CIERRE$/i,'').split('-');
+  const fase=layerParts[0]||null;
+  const banco=layerParts[1]||null;
+  const patios=layerParts.slice(2).filter(p=>p&&!/CIERRE/i.test(p));
+
+  // Extract ONLY the POLHED block — ignore TXTHED point
   const polhedMatch=text.match(/POLHED:.*?(?=\nTXTHED:|\nEnd:\s+\S+-CIERRE|\nEnd:\s+\S+\s*$)/s);
   const polhedText=polhedMatch?polhedMatch[0]:text;
   const verts=[...polhedText.matchAll(/Point:\s+[01]\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/g)]
@@ -757,10 +846,11 @@ function pArchD(text,fn){
     else if(/TACO|Taco/.test(t)){const n=t.match(/[\d.]+/);if(n)taco=n[0]+'m';}
     else if(/FC:/.test(t)){const n=t.match(/[\d.]+/);if(n)fc=parseFloat(n[0]);}
   }
-  const fm=pid.match(/^([A-Z]\d{2})/);
-  return{polygon_id:pid,mesh,fase:fm?fm[1]:null,elevation:clean[0]?.z,
-    vertices:JSON.stringify(clean),blast_date:bd,tonelaje:ton,densidad:den,
-    malla,taco,factor_carga:fc,source_file:fn};
+  return{
+    polygon_id:pid, fase, banco, patio:patios.join('-')||null, mesh,
+    elevation:clean[0]?.z, vertices:JSON.stringify(clean),
+    blast_date:bd, tonelaje:ton, densidad:den, malla, taco, factor_carga:fc, source_file:fn
+  };
 }
 async function uploadFiles(type){
   const queue=fQ[type];if(!queue.length)return;
@@ -985,9 +1075,28 @@ function renderMap(){
     });
     ctx.globalAlpha=1;
   }
+  // Draw projected polygons (next banco)
+  if(projectionOn && POLYS_PROJECTED.length){
+    POLYS_PROJECTED.forEach(poly=>{
+      let v=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
+      if(!v||v.length<3)return;
+      const clean=v.filter((pt,i)=>{
+        if(i===0)return true;
+        const prev=v[i-1];
+        return Math.abs(pt.x-prev.x)>0.01||Math.abs(pt.y-prev.y)>0.01;
+      });
+      if(clean.length>1){const f=clean[0],l=clean[clean.length-1];if(Math.abs(f.x-l.x)<0.01&&Math.abs(f.y-l.y)<0.01)clean.pop();}
+      if(clean.length<3)return;
+      ctx.beginPath();
+      clean.forEach((pt,i)=>{const{sx,sy}=w2s(pt.x,pt.y);i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);});
+      ctx.closePath();
+      ctx.strokeStyle=`rgba(188,140,255,0.9)`;ctx.lineWidth=polyWidth;
+      ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='rgba(188,140,255,0.08)';ctx.fill();
+    });
+  }
   document.getElementById('map-legend').style.display='block';
   updateLegend();
-  // Refresh heatmap overlay after map redraws
   if(heatmapOn) buildHeatmap();
 }
 window.addEventListener('resize',()=>{resizeCanvas();hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;renderMap();});
