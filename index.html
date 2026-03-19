@@ -803,7 +803,27 @@ async function uploadPolygons(polyType){
   document.getElementById('pb-'+polyType).style.width='100%';
   logEl.textContent+=`\nListo: ${ok} ok, ${err} errores`;
 }
-function pCSV(text){const l=text.split(/\r?\n/);const h=l[0].split(',').map(x=>x.trim().replace(/^\uFEFF/,''));return l.slice(1).filter(x=>x.trim()).map(l=>{const v=l.split(',');const o={};h.forEach((k,i)=>o[k]=(v[i]||'').trim());return o;});}
+function pCSV(text){
+  const lines=text.split(/\r?\n/);
+  const parseRow=line=>{
+    const vals=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){vals.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+    vals.push(cur.trim());
+    return vals;
+  };
+  const hdr=parseRow(lines[0]).map(h=>h.replace(/^\uFEFF/,'').replace(/^"|"$/g,'').trim());
+  return lines.slice(1).filter(l=>l.trim()).map(l=>{
+    const v=parseRow(l);
+    const o={};
+    hdr.forEach((h,i)=>o[h]=(v[i]||'').replace(/^"|"$/g,'').trim());
+    return o;
+  });
+}
 function sf(v){const f=parseFloat(v);return isNaN(f)?null:f;}
 function sd(v){if(!v)return null;const ms=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];const m=v.match(/(\d+)-([A-Za-z]+)-(\d+)/);if(m){const mi=ms.indexOf(m[2].toLowerCase());if(mi>=0)return`${m[3]}-${String(mi+1).padStart(2,'0')}-${m[1].padStart(2,'0')}`;}const m2=v.match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m2)return`${m2[3]}-${m2[2]}-${m2[1]}`;return null;}
 function pPozos(text,fn){return pCSV(text).filter(r=>r.acqHole).map(r=>({acq_hole:r.acqHole.trim(),mesh:r.autPatio||null,fase:r.fase||null,patio:r.patio||null,equipo:(r.equipment||'').trim()||null,x_real:sf(r.xReal),y_real:sf(r.yReal),z_real:sf(r.zReal),x_plan:sf(r.xPlan),y_plan:sf(r.yPlan),z_plan:sf(r.zPlan),date:sd(r.date),depth_plan:sf(r.depthPlan),depth_real:sf(r.depthReal),var_depth:sf(r.varDepth),status:r.status||null,rend_ope:sf(r.redndOpe),drilling_time:r.drillingTime||null,re_drilling:r.reDrilling==='TRUE',source_file:fn})).filter(r=>r.acq_hole);}
