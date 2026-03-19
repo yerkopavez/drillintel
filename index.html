@@ -345,7 +345,11 @@ function initSupabase(url, key) {
   if (!url || !key) return;
   try {
     sb = supabase.createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false }
+      auth: { persistSession: false, autoRefreshToken: false },
+      db: { schema: 'public' },
+      global: {
+        headers: { 'Accept-Profile': 'public' }
+      }
     });
     document.getElementById('db-badge').textContent = '● Supabase';
     document.getElementById('db-badge').className = 'badge online';
@@ -387,7 +391,7 @@ async function loadData() {
     if (activeFase !== 'all') query = query.eq('fase', activeFase);
 
     let allHoles = [];
-    let from = 0; const step = 2000;
+    let from = 0; const step = 10000;
     while (true) {
       const {data, error} = await query.range(from, from+step-1);
       if (error) throw error;
