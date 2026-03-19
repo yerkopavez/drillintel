@@ -155,12 +155,17 @@ select:focus{outline:none;border-color:var(--accent2)}
     </div>
     <div class="fg" style="margin-left:8px">
       <label>Heatmap</label>
-      <div style="display:flex;gap:4px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center">
         <div class="cm-btn" id="hm-toggle" onclick="toggleHeatmap(this)">OFF</div>
         <select id="hm-level" onchange="if(heatmapOn)buildHeatmap()" style="display:none">
           <option value="banco">Por banco</option>
           <option value="patio">Por patio</option>
         </select>
+        <div id="hm-opacity-wrap" style="display:none;align-items:center;gap:5px">
+          <input type="range" id="hm-opacity" min="0" max="100" value="72" style="width:70px;padding:0"
+            oninput="document.getElementById('hm-canvas').style.opacity=this.value/100;document.getElementById('hm-opacity-lbl').textContent=this.value+'%'">
+          <span id="hm-opacity-lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-width:28px">72%</span>
+        </div>
       </div>
     </div>
     <div style="margin-left:auto;display:flex;gap:6px">
@@ -729,6 +734,9 @@ function toggleHeatmap(el){
   el.style.borderColor=heatmapOn?'var(--accent2)':'';
   el.style.color=heatmapOn?'#000':'';
   document.getElementById('hm-level').style.display=heatmapOn?'inline-block':'none';
+  document.getElementById('hm-opacity-wrap').style.display=heatmapOn?'flex':'none';
+  const opa=document.getElementById('hm-opacity').value/100;
+  hmCanvas.style.opacity=opa;
   hmCanvas.style.display=heatmapOn?'block':'none';
   if(heatmapOn) buildHeatmap();
   else{hmCtx.clearRect(0,0,hmCanvas.width,hmCanvas.height);hmCache=null;}
