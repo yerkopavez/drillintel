@@ -264,13 +264,13 @@ const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRef
 
 // MSE categories (matches SQL)
 const MSE_CATS=[
-  {label:'Muy blando', lo:0,    hi:2000,  color:'#4ade80', bg:'rgba(74,222,128,.15)'},
-  {label:'Blando',     lo:2000, hi:2700,  color:'#86efac', bg:'rgba(134,239,172,.15)'},
-  {label:'Moderado -', lo:2700, hi:3400,  color:'#fde68a', bg:'rgba(253,230,138,.15)'},
-  {label:'Moderado +', lo:3400, hi:4200,  color:'#fbbf24', bg:'rgba(251,191,36,.15)'},
-  {label:'Duro',       lo:4200, hi:5200,  color:'#f97316', bg:'rgba(249,115,22,.15)'},
-  {label:'Muy duro',   lo:5200, hi:7000,  color:'#ef4444', bg:'rgba(239,68,68,.15)'},
-  {label:'Extremo',    lo:7000, hi:999999, color:'#fca5a5', bg:'rgba(252,165,165,.15)'},
+  {label:'Muy blando', lo:0,    hi:2000,   color:'#38bdf8', bg:'rgba(56,189,248,.15)'},
+  {label:'Blando',     lo:2000, hi:2700,   color:'#7dd3fc', bg:'rgba(125,211,252,.15)'},
+  {label:'Moderado -', lo:2700, hi:3400,   color:'#4ade80', bg:'rgba(74,222,128,.15)'},
+  {label:'Moderado +', lo:3400, hi:4200,   color:'#86efac', bg:'rgba(134,239,172,.15)'},
+  {label:'Duro',       lo:4200, hi:5200,   color:'#f97316', bg:'rgba(249,115,22,.15)'},
+  {label:'Muy duro',   lo:5200, hi:7000,   color:'#ef4444', bg:'rgba(239,68,68,.15)'},
+  {label:'Extremo',    lo:7000, hi:999999, color:'#991b1b', bg:'rgba(153,27,27,.15)'},
 ];
 function getCat(mse){if(!mse)return null;return MSE_CATS.find(c=>mse>=c.lo&&mse<c.hi)||MSE_CATS[6];}
 function getCatFromLabel(label){return MSE_CATS.find(c=>c.label===label);}
@@ -278,9 +278,11 @@ function getCatFromLabel(label){return MSE_CATS.find(c=>c.label===label);}
 const MSE_MIN=852,MSE_MAX=11705;
 const EQ_COLORS={PER04:'#79c0ff',PER08:'#56d364',PER10:'#f0883e',PER11:'#bc8cff'};
 const EQ_LIST=['PER04','PER08','PER10','PER11'];
-const LARGE_FASES=['H01','H05'];
-const FASE_COLORS=['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72'];
-const FASES=['F19','F21','H01','H02','H05'];
+const FASES_DEFAULT=['F19','F20','F21','H01','H02','H03','H05','H07'];
+const LARGE_FASES=['H01','H02','H05'];
+const PALETTE=['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#38bdf8','#f85149'];
+let FASES=[];  // loaded dynamically from DB
+function faseColor(f){const i=FASES.indexOf(f);return PALETTE[i>=0?i%PALETTE.length:0];}
 
 let HOLES=[],POLYS=[],filtered=[];
 let activeFase=null,activeBanco=null,activePatio=null,colorMode='mse';
@@ -431,8 +433,10 @@ function w2s(x,y){
 function msegColor(v){
   if(!v)return'#3a3a3a';
   const t=Math.max(0,Math.min(1,(v-MSE_MIN)/(MSE_MAX-MSE_MIN)));
-  if(t<.5){const u=t*2;return`rgb(${Math.round(86+(227-86)*u)},${Math.round(211+(179-211)*u)},${Math.round(100+(65-100)*u)})`;}
-  const u=(t-.5)*2;return`rgb(${Math.round(227+(248-227)*u)},${Math.round(179+(81-179)*u)},${Math.round(65+(73-65)*u)})`;
+  // cyan (0) → green (0.33) → orange (0.6) → dark red (1)
+  if(t<0.33){const u=t/0.33;return`rgb(${Math.round(56+(74-56)*u)},${Math.round(189+(222-189)*u)},${Math.round(248+(128-248)*u)})`;}
+  if(t<0.6){const u=(t-0.33)/0.27;return`rgb(${Math.round(74+(249-74)*u)},${Math.round(222+(115-222)*u)},${Math.round(128+(22-128)*u)})`;}
+  const u=(t-0.6)/0.4;return`rgb(${Math.round(249+(153-249)*u)},${Math.round(115+(27-115)*u)},${Math.round(22+(27-22)*u)})`;
 }
 function ropColor(v){if(!v)return'#3a3a3a';const t=Math.max(0,Math.min(1,(v-.3)/4));return`rgb(${Math.round(248-(248-86)*t)},${Math.round(81+(211-81)*t)},${Math.round(73+(100-73)*t)})`;}
 function hColor(h){
@@ -471,7 +475,7 @@ function updateLegend(){
   const lt=document.getElementById('leg-title');
   if(colorMode==='mse'){
     gw.style.display='block';cw.style.display='none';lt.textContent='MSE (gradiente)';
-    document.getElementById('leg-bar').style.background='linear-gradient(to right,#56d364,#e3b341,#f85149)';
+    document.getElementById('leg-bar').style.background='linear-gradient(to right,#38bdf8,#4ade80,#f97316,#991b1b)';
     document.getElementById('lv1').textContent='850';document.getElementById('lv2').textContent='3.400';
     document.getElementById('lv3').textContent='6.800';document.getElementById('lv4').textContent='11.700';
     document.getElementById('leg-lo').textContent='Blando';document.getElementById('leg-hi').textContent='Duro';
@@ -609,7 +613,7 @@ async function renderDash(){
   // Ch1: MSE por fase o banco
   const gKey=fase?'banco':'fase';
   const gs=fase?[...new Set(h.map(x=>x.banco))].filter(Boolean).sort():FASES;
-  const gColors=fase?['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#f85149']:FASE_COLORS;
+  const gColors=fase?PALETTE:FASES.map((_,i)=>PALETTE[i%PALETTE.length]);
   document.getElementById('ct1').textContent=fase?`MSE por Banco (${fase+(banco?' > '+banco:'')})`:'MSE por Fase';
   const gMSE=gs.map(g=>{const v=h.filter(x=>x[gKey]===g&&x.mse_avg).map(x=>x.mse_avg);return v.length?Math.round(avg(v)):0;});
   dC('ch1');DC['ch1']=new Chart(document.getElementById('ch1'),{type:'bar',data:{labels:gs,datasets:[{data:gMSE,backgroundColor:gColors.slice(0,gs.length),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}});
@@ -634,7 +638,7 @@ async function renderDash(){
   dC('ch5');DC['ch5']=new Chart(document.getElementById('ch5'),{type:'bar',data:{labels:bins.slice(0,-1).map((b,i)=>`${(b/1000).toFixed(1)}k`),datasets:[{data:hist,backgroundColor:bins.slice(0,-1).map(b=>getCat(b+1)?.color||'#888'),borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}});
 
   // Ch6: Scatter ROP vs MSE
-  dC('ch6');DC['ch6']=new Chart(document.getElementById('ch6'),{type:'scatter',data:{datasets:FASES.map((f,i)=>({label:f,data:h.filter(x=>x.fase===f&&x.mse_avg&&x.rop_avg).map(x=>({x:x.mse_avg,y:x.rop_avg})),backgroundColor:FASE_COLORS[i]+'88',pointRadius:2}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10},boxWidth:8,padding:6}}},scales:{x:{title:{display:true,text:'MSE',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},y:{title:{display:true,text:'ROP m/min',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}}); 
+  dC('ch6');DC['ch6']=new Chart(document.getElementById('ch6'),{type:'scatter',data:{datasets:FASES.map((f)=>({label:f,data:h.filter(x=>x.fase===f&&x.mse_avg&&x.rop_avg).map(x=>({x:x.mse_avg,y:x.rop_avg})),backgroundColor:faseColor(f)+'88',pointRadius:2}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e',font:{size:10},boxWidth:8,padding:6}}},scales:{x:{title:{display:true,text:'MSE',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},y:{title:{display:true,text:'ROP m/min',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}}); 
 }
 
 // ─── TABS ───
@@ -698,12 +702,23 @@ window.addEventListener('load',async()=>{
   document.getElementById('cfg-url').value=SB_URL;
   document.getElementById('cfg-key').value=SB_KEY;
   resizeCanvas();
-  // Load hierarchy with error handling
   try{
-    const{data,error}=await sb.from('pozos').select('acq_hole,fase').not('x_real','is',null).not('mse_avg','is',null).limit(20000);
+    const{data,error}=await sb.from('pozos')
+      .select('acq_hole,fase')
+      .not('x_real','is',null)
+      .not('mse_avg','is',null)
+      .limit(20000);
     if(error)throw error;
     buildH(data.map(h=>({id:h.acq_hole})));
+    // Build dynamic FASES list from actual data
+    FASES=Object.keys(hierarchy).sort();
+    // Auto-assign colors cycling through palette
+    const palette=['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#f85149','#38bdf8'];
+    FASES.forEach((f,i)=>{ if(!window.FASE_COLOR_MAP) window.FASE_COLOR_MAP={}; window.FASE_COLOR_MAP[f]=palette[i%palette.length]; });
     renderFase();
+    // Populate dashboard fase select dynamically
+    const dfSel=document.getElementById('df-fase');
+    dfSel.innerHTML='<option value="">Todas</option>'+FASES.map(f=>`<option>${f}</option>`).join('');
     document.getElementById('db-status').textContent='● Supabase';
   }catch(e){
     console.error('Init error:',e);
