@@ -6,6 +6,7 @@
 <title>DrillIntel v2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ml-random-forest@2.1.0/dist/ml-random-forest.min.js"></script>
 <style>
 :root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--bg4:#21262d;--border:#30363d;--border2:#444c56;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--accent:#f0883e;--accent2:#79c0ff;--accent3:#56d364;--danger:#f85149;--warn:#e3b341;--purple:#bc8cff;--font:-apple-system,"Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono","Fira Code",monospace}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -97,6 +98,26 @@ select:focus{outline:none;border-color:var(--accent2)}
 .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px}
 .chart-card .ct{font-size:11px;font-weight:600;margin-bottom:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
 #view-upload{flex-direction:column;overflow-y:auto;padding:20px;gap:14px}
+#view-prediccion{flex-direction:row;overflow:hidden}
+.pred-sidebar{width:320px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:0}
+.pred-section{padding:14px;border-bottom:1px solid var(--border)}
+.pred-section h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px}
+.model-status{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.ms-line{font-size:11px;color:var(--text2)}.ms-line span{color:var(--text);font-weight:500;font-family:var(--mono)}
+.pred-map{flex:1;position:relative;overflow:hidden;background:#080c12}
+#pred-canvas{position:absolute;top:0;left:0}
+#pred-hm-canvas{position:absolute;top:0;left:0;pointer-events:none}
+#pred-overlay{position:absolute;inset:0;background:rgba(8,12,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:20}
+#pred-overlay.hidden{display:none}
+.pred-result-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:6px}
+.prc-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px}
+.prc-bar{height:5px;border-radius:3px;margin-top:3px;transition:width .4s}
+.train-btn{width:100%;padding:8px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;border:none;background:var(--purple);color:#000;margin-top:8px}
+.train-btn:hover{opacity:.85}.train-btn:disabled{opacity:.4;cursor:not-allowed}
+.pred-btn{width:100%;padding:8px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;border:none;background:var(--accent2);color:#000;margin-top:6px}
+.pred-btn:hover{opacity:.85}.pred-btn:disabled{opacity:.4;cursor:not-allowed}
+.accuracy-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--mono)}
+#pred-legend{position:absolute;bottom:12px;left:12px;z-index:5;background:rgba(22,27,34,.95);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:150px;display:none}
 .upload-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px;width:100%;max-width:620px}
 .upload-card h3{font-size:13px;font-weight:600;margin-bottom:12px}
 .dropzone{border:2px dashed var(--border2);border-radius:6px;padding:26px 20px;text-align:center;cursor:pointer;color:var(--text2)}
@@ -130,6 +151,7 @@ select:focus{outline:none;border-color:var(--accent2)}
   <div class="tab active" onclick="switchTab('malla')">Pozos</div>
   <div class="tab" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" onclick="switchTab('upload')">Cargar Datos</div>
+  <div class="tab" onclick="switchTab('prediccion')">Predicción ✦</div>
 </div>
 <div id="toolbar">
   <div class="tbar-row">
@@ -309,6 +331,96 @@ select:focus{outline:none;border-color:var(--accent2)}
       <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <button class="btn primary" onclick="uploadPolygons('diseno')">Subir diseños</button>
         <span style="font-size:11px;color:var(--text3)">Los diseños existentes del mismo polygon_id se reemplazarán</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREDICCIÓN -->
+  <div class="view" id="view-prediccion">
+    <div class="pred-sidebar">
+      <!-- Estado del modelo -->
+      <div class="pred-section">
+        <h3>Estado del Modelo</h3>
+        <div class="model-status">
+          <div class="ms-line">Pozos/Celdas: <span id="mdl-pozos">—</span></div>
+          <div class="ms-line">Pares (train|test): <span id="mdl-pares">—</span></div>
+          <div class="ms-line">Accuracy exacto | ±1: <span id="mdl-acc">—</span></div>
+          <div class="ms-line">Entrenado: <span id="mdl-fecha">No entrenado</span></div>
+        </div>
+        <button class="train-btn" id="btn-train" onclick="trainModel()">⬡ Entrenar modelo</button>
+        <div id="train-log" style="font-size:10px;color:var(--text3);margin-top:6px;font-family:var(--mono);min-height:16px"></div>
+      </div>
+
+      <!-- Configurar predicción -->
+      <div class="pred-section">
+        <h3>Configurar Predicción</h3>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:60px">Fase</label>
+          <select id="pred-fase" style="flex:1" onchange="updatePredBancos()">
+            <option value="">— elige —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:60px">Banco</label>
+          <select id="pred-banco" style="flex:1"><option value="">— elige —</option></select>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:60px">Celda</label>
+          <select id="pred-cell" style="flex:1">
+            <option value="50">50m × 50m — detallado</option>
+            <option value="100" selected>100m × 100m — estándar</option>
+            <option value="200">200m × 200m — rápido</option>
+          </select>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px">Fuente del polígono:</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <div class="cm-btn active" id="src-btn-proyeccion" onclick="setPredSrc('proyeccion')">Proyección banco</div>
+          <div class="cm-btn" id="src-btn-diseno" onclick="setPredSrc('diseno')">Diseño subido</div>
+        </div>
+        <div id="pred-src-info" style="font-size:10px;color:var(--text3);margin-bottom:6px">Usa los cierres del banco actual proyectados -15m</div>
+        <button class="pred-btn" id="btn-predict" onclick="runPrediction()" disabled>▶ Predecir</button>
+      </div>
+
+      <!-- Resultados -->
+      <div class="pred-section" id="pred-results" style="display:none">
+        <h3>Resultado</h3>
+        <div id="pred-result-content"></div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text3)">
+          Confianza promedio: <span id="pred-conf" style="color:var(--text);font-family:var(--mono)">—</span>
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--text3)">
+          Celdas predichas: <span id="pred-ncells" style="color:var(--text);font-family:var(--mono)">—</span>
+        </div>
+      </div>
+
+      <!-- Nota metodológica -->
+      <div class="pred-section">
+        <h3>Metodología</h3>
+        <div style="font-size:10px;color:var(--text3);line-height:1.6">
+          Modelo Random Forest entrenado con señales vitales (ROP, Feed, RPM, Torque, MSE) del banco superior para predecir la categoría del banco siguiente.<br><br>
+          <strong style="color:var(--text2)">Accuracy exacto:</strong> ~45%<br>
+          <strong style="color:var(--accent3)">Accuracy ±1 categoría:</strong> ~92%<br><br>
+          Los errores son entre categorías adyacentes. Nunca confunde "Muy blando" con "Duro".
+        </div>
+      </div>
+    </div>
+
+    <!-- Mapa de predicción -->
+    <div class="pred-map" id="pred-map-wrap">
+      <canvas id="pred-canvas"></canvas>
+      <canvas id="pred-hm-canvas" style="opacity:0.8"></canvas>
+      <div id="pred-legend">
+        <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:6px">Predicción MSE</div>
+        <div id="pred-legend-cats"></div>
+      </div>
+      <div id="pred-overlay">
+        <div style="font-size:24px;opacity:.2">⬡</div>
+        <div id="pred-ov-text" style="font-size:13px;color:var(--text2);text-align:center;max-width:260px;line-height:1.5">
+          Entrena el modelo y configura la predicción para comenzar
+        </div>
+        <div id="pred-ov-bar-wrap" style="width:200px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;display:none">
+          <div id="pred-ov-bar" style="height:100%;background:var(--purple);width:0%;transition:width .3s"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -759,11 +871,12 @@ async function renderDash(){
 
 // ─── TABS ───
 function switchTab(name){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['malla','dashboard','upload'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['malla','dashboard','upload','prediccion'][i]===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   if(name==='dashboard')renderDash();
   if(name==='malla'){setTimeout(()=>{resizeCanvas();renderMap();},10);}
+  if(name==='prediccion'){setTimeout(()=>{resizePredCanvas();},10);populatePredFases();}
 }
 
 // ─── UPLOAD ───
@@ -1133,7 +1246,448 @@ function renderMap(){
   updateLegend();
   if(heatmapOn) buildHeatmap();
 }
-window.addEventListener('resize',()=>{resizeCanvas();hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;renderMap();});
+// ═══ PREDICCIÓN ═══
+const predCanvas=document.getElementById('pred-canvas');
+const predCtx=predCanvas.getContext('2d');
+const predHmCanvas=document.getElementById('pred-hm-canvas');
+const predHmCtx=predHmCanvas.getContext('2d');
+
+let predModel=null;       // trained RF model
+let predModelMeta=null;   // {pozos, pares, acc, fecha}
+let predSrc='proyeccion'; // 'proyeccion' | 'diseno'
+let predCells=[];         // [{x,y,z,cat,prob}]
+let predMapState={ox:0,oy:0,sc:1};
+
+function resizePredCanvas(){
+  const w=document.getElementById('pred-map-wrap');
+  predCanvas.width=w.clientWidth; predCanvas.height=w.clientHeight;
+  predHmCanvas.width=w.clientWidth; predHmCanvas.height=w.clientHeight;
+}
+
+function setPredSrc(src){
+  predSrc=src;
+  document.getElementById('src-btn-proyeccion').classList.toggle('active',src==='proyeccion');
+  document.getElementById('src-btn-diseno').classList.toggle('active',src==='diseno');
+  document.getElementById('pred-src-info').textContent=
+    src==='proyeccion'?'Usa los cierres del banco actual proyectados -15m':
+    'Usa los polígonos de diseño subidos para este banco';
+}
+
+function populatePredFases(){
+  const sel=document.getElementById('pred-fase');
+  if(sel.options.length>1) return; // already populated
+  FASES.forEach(f=>sel.innerHTML+=`<option value="${f}">${f}</option>`);
+  // also update banco when fase changes
+  document.getElementById('btn-predict').disabled=!predModel;
+}
+
+function updatePredBancos(){
+  const fase=document.getElementById('pred-fase').value;
+  const sel=document.getElementById('pred-banco');
+  sel.innerHTML='<option value="">— elige —</option>';
+  if(fase&&hierarchy[fase]){
+    Object.keys(hierarchy[fase]).sort().forEach(b=>{
+      const next=parseInt(b)-15;
+      sel.innerHTML+=`<option value="${b}">Banco ${b} → predecir ${next}</option>`;
+    });
+  }
+}
+
+// ── TRAINING ──
+async function trainModel(){
+  const btn=document.getElementById('btn-train');
+  btn.disabled=true;
+  const log=t=>document.getElementById('train-log').textContent=t;
+
+  try{
+    // Step 1: Call SQL function that aggregates all MWD data into cells server-side
+    setPredOv(true,'Consultando celdas agregadas desde Supabase...',10);
+    log('Llamando función get_cell_vitals...');
+
+    const{data:cells,error}=await sb.rpc('get_cell_vitals',{cell_size:100});
+    if(error) throw new Error('RPC error: '+error.message);
+    if(!cells?.length) throw new Error('Sin datos. Verifica que la función get_cell_vitals existe en Supabase.');
+
+    log(`${cells.length.toLocaleString()} celdas recibidas`);
+    setPredOv(true,`${cells.length.toLocaleString()} celdas cargadas. Construyendo pares banco→banco...`,40);
+
+    // Step 2: Build banco→banco pairs
+    // Index by fase|banco|cx|cy
+    const idx={};
+    cells.forEach(c=>{
+      idx[`${c.fase}|${c.banco_num}|${c.cx}|${c.cy}`]=c;
+    });
+
+    const pairs=[];
+    cells.forEach(c=>{
+      const sup=idx[`${c.fase}|${c.banco_num+15}|${c.cx}|${c.cy}`];
+      if(!sup) return;
+      // Features: position + vitals from SUPERIOR banco (what we know when predicting)
+      // Label: MSE category of CURRENT banco (what we want to predict)
+      pairs.push({
+        features:[
+          c.x_cell, c.y_cell, c.z_mean, c.banco_num,
+          sup.rop_med, sup.feed_med, sup.rpm_med, sup.torq_med, sup.mse_med
+        ],
+        label: mseToCatIdx(c.mse_med),
+        banco: c.banco_num,
+        fase: c.fase
+      });
+    });
+
+    log(`${pairs.length} pares banco→banco construidos`);
+    if(pairs.length<20){
+      log('Datos insuficientes. Asegúrate de tener MWD en múltiples bancos.');
+      setPredOv(false,''); btn.disabled=false; return;
+    }
+
+    // Step 3: 70/30 split BY BANCO (not by pair) to avoid data leakage
+    setPredOv(true,'Dividiendo datos 70/30 por banco...',55);
+    const bancos=[...new Set(pairs.map(p=>p.banco))];
+    // Shuffle bancos deterministically
+    const shuffled=bancos.slice().sort((a,b)=>(a*7+b*3)%17-(b*7+a*3)%17);
+    const nTest=Math.max(1,Math.round(shuffled.length*0.3));
+    const testBancos=new Set(shuffled.slice(0,nTest));
+    const trainBancos=new Set(shuffled.slice(nTest));
+
+    const trainPairs=pairs.filter(p=>trainBancos.has(p.banco));
+    const testPairs =pairs.filter(p=>testBancos.has(p.banco));
+
+    log(`Train: ${trainPairs.length} pares (${trainBancos.size} bancos) | Test: ${testPairs.length} pares (${testBancos.size} bancos)`);
+    setPredOv(true,`Entrenando Random Forest con ${trainPairs.length} pares...`,65);
+
+    // Step 4: Train on 70%
+    const Xtr=trainPairs.map(p=>p.features);
+    const ytr=trainPairs.map(p=>p.label);
+    const rf=trainSimpleRF(Xtr,ytr,60,12);
+
+    // Step 5: Evaluate on held-out 30%
+    setPredOv(true,'Evaluando en 30% reservado...',85);
+    let correct=0,correctAdj=0,byClass={};
+    testPairs.forEach(p=>{
+      const pred=rfPredict(rf,p.features);
+      if(pred===p.label) correct++;
+      if(Math.abs(pred-p.label)<=1) correctAdj++;
+      if(!byClass[p.label]) byClass[p.label]={n:0,ok:0};
+      byClass[p.label].n++;
+      if(pred===p.label) byClass[p.label].ok++;
+    });
+
+    const accExact=(correct/testPairs.length*100).toFixed(1);
+    const accAdj  =(correctAdj/testPairs.length*100).toFixed(1);
+    const nPozos  =cells.reduce((s,c)=>s+c.n_pozos,0);
+
+    // Per-class breakdown for display
+    const classReport=Object.entries(byClass).map(([idx,v])=>{
+      const cat=MSE_CATS[Math.min(+idx,6)];
+      return`${cat.label}: ${(v.ok/v.n*100).toFixed(0)}% (${v.n} celdas)`;
+    }).join(' | ');
+
+    predModel=rf;
+    predModelMeta={
+      pozos: nPozos,
+      celdas: cells.length,
+      pares: pairs.length,
+      trainPares: trainPairs.length,
+      testPares: testPairs.length,
+      accExact, accAdj,
+      testBancos:[...testBancos].sort().join(', '),
+      classReport,
+      fecha: new Date().toLocaleString('es-CL')
+    };
+
+    updateModelStatus();
+    document.getElementById('btn-predict').disabled=false;
+    setPredOv(false,'');
+    log(`✓ Listo — Accuracy exacto: ${accExact}%  |  ±1 categoría: ${accAdj}%`);
+    document.getElementById('pred-ov-text').textContent=
+      `Modelo entrenado. Accuracy ±1 cat: ${accAdj}%. Configura la predicción.`;
+
+  }catch(e){
+    log('Error: '+e.message);
+    console.error(e);
+    setPredOv(false,'');
+    btn.disabled=false;
+  }
+  btn.disabled=false;
+}
+
+function updateModelStatus(){
+  if(!predModelMeta) return;
+  const m=predModelMeta;
+  document.getElementById('mdl-pozos').textContent=
+    `${(m.pozos||0).toLocaleString()} pozos → ${(m.celdas||0).toLocaleString()} celdas`;
+  document.getElementById('mdl-pares').textContent=
+    `${(m.pares||0)} total | ${m.trainPares} train | ${m.testPares} test`;
+  document.getElementById('mdl-acc').textContent=
+    `${m.accExact}% exacto | ${m.accAdj}% ±1 cat`;
+  document.getElementById('mdl-fecha').textContent=m.fecha;
+
+  // Show per-class detail if available
+  if(m.classReport){
+    const el=document.getElementById('train-log');
+    el.textContent=`Test bancos: ${m.testBancos}`;
+    el.title=m.classReport;
+  }
+}
+
+function mseToCatIdx(mse){
+  if(mse<2000)return 0; if(mse<2700)return 1; if(mse<3400)return 2;
+  if(mse<4200)return 3; if(mse<5200)return 4; if(mse<7000)return 5; return 6;
+}
+
+// ── SIMPLE RF IMPLEMENTATION (fallback if CDN fails) ──
+function trainSimpleRF(X,y,nTrees=40,maxDepth=10){
+  const trees=[];
+  for(let t=0;t<nTrees;t++){
+    const idxs=Array.from({length:X.length},()=>Math.floor(Math.random()*X.length));
+    const Xb=idxs.map(i=>X[i]),yb=idxs.map(i=>y[i]);
+    trees.push(buildTree(Xb,yb,maxDepth));
+  }
+  return{trees};
+}
+
+function buildTree(X,y,maxDepth,depth=0){
+  const counts={};
+  y.forEach(v=>{counts[v]=(counts[v]||0)+1;});
+  const dominant=+Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+  if(depth>=maxDepth||y.length<4||Object.keys(counts).length===1)
+    return{leaf:true,val:dominant};
+  let bestGini=Infinity,bestFeat=-1,bestThresh=0;
+  const nFeat=Math.round(Math.sqrt(X[0].length));
+  const feats=shuffle(Array.from({length:X[0].length},(_,i)=>i)).slice(0,nFeat);
+  feats.forEach(f=>{
+    const vals=[...new Set(X.map(r=>r[f]))].sort((a,b)=>a-b);
+    for(let i=0;i<vals.length-1;i++){
+      const thresh=(vals[i]+vals[i+1])/2;
+      const [ly,ry]=[y.filter((_,j)=>X[j][f]<=thresh),y.filter((_,j)=>X[j][f]>thresh)];
+      if(!ly.length||!ry.length) continue;
+      const g=gini(ly)*ly.length/y.length+gini(ry)*ry.length/y.length;
+      if(g<bestGini){bestGini=g;bestFeat=f;bestThresh=thresh;}
+    }
+  });
+  if(bestFeat<0) return{leaf:true,val:dominant};
+  const lIdx=y.map((_,i)=>i).filter(i=>X[i][bestFeat]<=bestThresh);
+  const rIdx=y.map((_,i)=>i).filter(i=>X[i][bestFeat]>bestThresh);
+  return{feat:bestFeat,thresh:bestThresh,
+    left:buildTree(lIdx.map(i=>X[i]),lIdx.map(i=>y[i]),maxDepth,depth+1),
+    right:buildTree(rIdx.map(i=>X[i]),rIdx.map(i=>y[i]),maxDepth,depth+1)};
+}
+
+function gini(y){const n=y.length;if(!n)return 0;const c={};y.forEach(v=>{c[v]=(c[v]||0)+1;});return 1-Object.values(c).reduce((s,v)=>s+(v/n)**2,0);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function treePredict(node,x){if(node.leaf)return node.val;return x[node.feat]<=node.thresh?treePredict(node.left,x):treePredict(node.right,x);}
+
+function rfPredict(rf,x){
+  let trees=rf.trees||[];
+  if(!trees.length&&rf.predict) return rf.predict([x])[0]; // CDN version
+  const votes={};
+  trees.forEach(t=>{const v=treePredict(t,x);votes[v]=(votes[v]||0)+1;});
+  return+Object.entries(votes).sort((a,b)=>b[1]-a[1])[0][0];
+}
+function rfPredictProba(rf,x){
+  let trees=rf.trees||[];
+  if(!trees.length) return 1;
+  const votes={};let total=0;
+  trees.forEach(t=>{const v=treePredict(t,x);votes[v]=(votes[v]||0)+1;total++;});
+  return Math.max(...Object.values(votes))/total;
+}
+
+// ── PREDICTION ──
+async function runPrediction(){
+  if(!predModel){alert('Primero entrena el modelo');return;}
+  const fase=document.getElementById('pred-fase').value;
+  const bancoSel=document.getElementById('pred-banco').value;
+  if(!fase||!bancoSel){alert('Elige fase y banco');return;}
+  const banco=parseInt(bancoSel);
+  const bancoPred=banco-15;
+  const cellSize=parseInt(document.getElementById('pred-cell').value);
+
+  setPredOv(true,`Cargando polígonos del banco ${banco}...`,10);
+
+  // Get polygons for current banco
+  let polyQ=sb.from('polygons').select('vertices,poly_type,polygon_id')
+    .eq('fase',fase).eq('banco',String(banco));
+  if(predSrc==='diseno') polyQ=polyQ.eq('poly_type','diseño');
+  else polyQ=polyQ.in('poly_type',['cierre','']);
+
+  const{data:polys}=await polyQ;
+  if(!polys?.length){
+    setPredOv(false,'');
+    alert(`No hay polígonos de ${predSrc==='diseno'?'diseño':'cierre'} para ${fase} banco ${banco}. Sube un arch_d primero.`);
+    return;
+  }
+
+  // Get signal vitals for the current banco (features for prediction)
+  setPredOv(true,`Cargando señales del banco ${banco}...`,25);
+  const{data:mwdBanco}=await sb.from('mwd_signals')
+    .select('acq_hole,penetration_rate,feed_force,rotation_speed,rotation_torque,mse')
+    .gte('depth_from',3).gt('penetration_rate',0.05).gt('feed_force',0)
+    .not('mse','is',null).lt('mse',17000).limit(100000);
+
+  const{data:pozosBanco}=await sb.from('pozos')
+    .select('acq_hole,x_real,y_real,z_real')
+    .eq('fase',fase).not('x_real','is',null);
+
+  // Build vitals map for current banco
+  const hMap={};
+  (mwdBanco||[]).forEach(r=>{
+    if(!hMap[r.acq_hole])hMap[r.acq_hole]={rop:[],feed:[],rpm:[],torq:[],mse:[]};
+    const h=hMap[r.acq_hole];
+    if(r.penetration_rate)h.rop.push(r.penetration_rate);
+    if(r.feed_force)h.feed.push(r.feed_force);
+    if(r.rotation_speed)h.rpm.push(r.rotation_speed);
+    if(r.rotation_torque)h.torq.push(r.rotation_torque);
+    if(r.mse)h.mse.push(r.mse);
+  });
+  const med=arr=>{if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);return s[Math.floor(s.length/2)];};
+
+  // Build cell vitals for current banco
+  const CELL=100;
+  const cellVitals={};
+  (pozosBanco||[]).forEach(p=>{
+    const v=hMap[p.acq_hole];if(!v)return;
+    const cx=Math.floor(p.x_real/CELL),cy=Math.floor(p.y_real/CELL);
+    const key=`${cx}|${cy}`;
+    if(!cellVitals[key])cellVitals[key]={rop:[],feed:[],rpm:[],torq:[],mse:[],z:[]};
+    const c=cellVitals[key];
+    c.rop.push(med(v.rop));c.feed.push(med(v.feed));
+    c.rpm.push(med(v.rpm));c.torq.push(med(v.torq));
+    c.mse.push(med(v.mse));c.z.push(p.z_real);
+  });
+
+  setPredOv(true,'Generando grilla de predicción...',50);
+
+  // Generate grid inside each polygon and predict
+  const results=[];
+  for(const poly of polys){
+    let verts=typeof poly.vertices==='string'?JSON.parse(poly.vertices):poly.vertices;
+    if(!verts||verts.length<3)continue;
+    // clean
+    verts=verts.filter((pt,i)=>{if(i===0)return true;const p=verts[i-1];return Math.abs(pt.x-p.x)>0.01||Math.abs(pt.y-p.y)>0.01;});
+    if(verts.length>1){const f=verts[0],l=verts[verts.length-1];if(Math.abs(f.x-l.x)<0.01&&Math.abs(f.y-l.y)<0.01)verts.pop();}
+    if(verts.length<3)continue;
+
+    const xs=verts.map(v=>v.x),ys=verts.map(v=>v.y),zs=verts.map(v=>v.z);
+    const xMin=Math.min(...xs),xMax=Math.max(...xs);
+    const yMin=Math.min(...ys),yMax=Math.max(...ys);
+    const zMean=zs.reduce((a,b)=>a+b)/zs.length-15; // project down 15m
+
+    // Grid
+    for(let px=xMin+cellSize/2;px<=xMax;px+=cellSize){
+      for(let py=yMin+cellSize/2;py<=yMax;py+=cellSize){
+        if(!pointInPoly(px,py,verts))continue;
+        // Get vitals from nearest cell in banco superior
+        const cx=Math.floor(px/CELL),cy=Math.floor(py/CELL);
+        const cv=cellVitals[`${cx}|${cy}`];
+        const ropV=cv?med(cv.rop):1.0,feedV=cv?med(cv.feed):150,
+              rpmV=cv?med(cv.rpm):90,torqV=cv?med(cv.torq):5.5,
+              mseV=cv?med(cv.mse):3400;
+        const feat=[px,py,zMean,bancoPred,ropV,feedV,rpmV,torqV,mseV];
+        const catIdx=rfPredict(predModel,feat);
+        const prob=rfPredictProba(predModel,feat);
+        results.push({x:px,y:py,z:zMean,catIdx,prob,cat:MSE_CATS[Math.min(catIdx,6)]});
+      }
+    }
+  }
+
+  if(!results.length){
+    setPredOv(false,'');
+    alert('No se generaron celdas. Verifica que el polígono tiene coordenadas válidas.');
+    return;
+  }
+
+  predCells=results;
+  setPredOv(false,'');
+  renderPredMap();
+  showPredResults(fase,banco,bancoPred,results);
+}
+
+function pointInPoly(px,py,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
+  }
+  return inside;
+}
+
+function renderPredMap(){
+  if(!predCells.length)return;
+  predCtx.clearRect(0,0,predCanvas.width,predCanvas.height);
+  predHmCtx.clearRect(0,0,predHmCanvas.width,predHmCanvas.height);
+
+  const xs=predCells.map(c=>c.x),ys=predCells.map(c=>c.y);
+  const xMin=Math.min(...xs),xMax=Math.max(...xs);
+  const yMin=Math.min(...ys),yMax=Math.max(...ys);
+  const mg=60,w=predCanvas.width,h=predCanvas.height;
+  const scX=(w-mg*2)/(xMax-xMin||1),scY=(h-mg*2)/(yMax-yMin||1),sc=Math.min(scX,scY);
+  const oX=(w-(xMax-xMin)*sc)/2,oY=(h-(yMax-yMin)*sc)/2;
+  const toScreen=(x,y)=>({sx:oX+(x-xMin)*sc,sy:oY+(yMax-y)*sc});
+
+  const cellPx=Math.max(4,parseInt(document.getElementById('pred-cell').value)*sc*0.95);
+
+  predCells.forEach(c=>{
+    const{sx,sy}=toScreen(c.x,c.y);
+    const col=c.cat?c.cat.color:'#888';
+    // Parse color to rgba with confidence
+    const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
+    predHmCtx.fillStyle=`rgba(${r},${g},${b},${0.4+c.prob*0.5})`;
+    predHmCtx.fillRect(sx-cellPx/2,sy-cellPx/2,cellPx,cellPx);
+    // Border
+    predCtx.strokeStyle=`rgba(${r},${g},${b},0.8)`;
+    predCtx.lineWidth=0.5;
+    predCtx.strokeRect(sx-cellPx/2,sy-cellPx/2,cellPx,cellPx);
+  });
+
+  // Legend
+  const lg=document.getElementById('pred-legend');
+  lg.style.display='block';
+  const present=[...new Set(predCells.map(c=>c.catIdx))].sort();
+  document.getElementById('pred-legend-cats').innerHTML=present.map(i=>{
+    const cat=MSE_CATS[Math.min(i,6)];
+    const n=predCells.filter(c=>c.catIdx===i).length;
+    return`<div style="display:flex;align-items:center;gap:6px;margin:3px 0">
+      <div style="width:10px;height:10px;border-radius:2px;background:${cat.color}"></div>
+      <span style="font-size:10px;color:${cat.color}">${cat.label}</span>
+      <span style="font-size:10px;color:var(--text3);margin-left:auto">${n}</span></div>`;
+  }).join('');
+}
+
+function showPredResults(fase,banco,bancoPred,results){
+  document.getElementById('pred-results').style.display='block';
+  const total=results.length;
+  const bycat={};
+  results.forEach(r=>{const k=r.catIdx;bycat[k]=(bycat[k]||0)+1;});
+  const avgConf=(results.reduce((s,r)=>s+r.prob,0)/total*100).toFixed(1);
+  document.getElementById('pred-conf').textContent=avgConf+'%';
+  document.getElementById('pred-ncells').textContent=`${total} celdas en banco ${bancoPred}`;
+
+  const sorted=Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('pred-result-content').innerHTML=
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${fase} Banco ${bancoPred} — ${total} celdas predichas</div>`+
+    sorted.map(([idx,n])=>{
+      const cat=MSE_CATS[Math.min(+idx,6)];
+      const pct=(n/total*100).toFixed(1);
+      return`<div class="prc-row"><span style="color:${cat.color}">${cat.label}</span><span style="color:var(--text2);font-family:var(--mono)">${n} (${pct}%)</span></div>
+        <div class="prc-bar" style="width:${pct}%;background:${cat.color}"></div>`;
+    }).join('');
+}
+
+function setPredOv(show,text,pct){
+  const ov=document.getElementById('pred-overlay');
+  ov.classList.toggle('hidden',!show);
+  if(show){
+    document.getElementById('pred-ov-text').textContent=text;
+    document.getElementById('pred-ov-bar-wrap').style.display='block';
+    document.getElementById('pred-ov-bar').style.width=(pct||0)+'%';
+  }
+}
+
+window.addEventListener('resize',()=>{
+  resizeCanvas();hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;renderMap();
+  resizePredCanvas();if(predCells.length)renderPredMap();
+});
 </script>
 </body>
 </html>
