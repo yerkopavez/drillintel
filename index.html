@@ -1362,18 +1362,22 @@ async function buildPredMapOverlay(){
   });
   const med=arr=>{if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);return s[Math.floor(s.length/2)];};
 
-  // Predict each grid point using current banco vitals as "superior" features
+  const NEIGHBORS=[];
+  for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) NEIGHBORS.push([dx,dy]);
+
+  function getCVitals(cx,cy){
+    const cv=cellVitals[`${cx}|${cy}`];
+    return[cv?med(cv.rop):1.0, cv?med(cv.feed):150,
+           cv?med(cv.rpm):90,  cv?med(cv.torq):5.5, cv?med(cv.mse):3400];
+  }
+
+  // Predict each grid point using 3x3 neighborhood from current banco
   gridPoints.forEach(pt=>{
     const cx=Math.floor(pt.x/cellSize);
     const cy=Math.floor(pt.y/cellSize);
-    const cv=cellVitals[`${cx}|${cy}`];
-    const ropV=cv?med(cv.rop):1.0;
-    const feedV=cv?med(cv.feed):150;
-    const rpmV=cv?med(cv.rpm):90;
-    const torqV=cv?med(cv.torq):5.5;
-    const mseV=cv?med(cv.mse):3400;
-    // Predict for banco -15 (next bank down)
-    const feat=[pt.x,pt.y,pt.z-15,bancoNum-15,ropV,feedV,rpmV,torqV,mseV];
+    // Build 49-feature vector matching training format
+    const feat=[pt.x, pt.y, pt.z-15, bancoNum-15];
+    NEIGHBORS.forEach(([dx,dy])=>{ feat.push(...getCVitals(cx+dx,cy+dy)); });
     const catIdx=rfPredict(predModel,feat);
     const prob=rfPredictProba(predModel,feat);
     predMapCells.push({x:pt.x,y:pt.y,catIdx,prob});
@@ -1477,27 +1481,42 @@ async function trainModel(){
     log(`${totalCeldas} celdas | ${totalPozos.toLocaleString()} pozos`);
     setPredOv(true,'Construyendo pares banco→banco...',40);
 
-    // Step 2: Build banco→banco pairs (20m cells)
-    const CELL_SIZE=20;
+    // Step 2: Build banco→banco pairs with 3x3 neighborhood features
+    // For each cell in banco N, use vitals of 9 neighboring cells in banco N+15
+    // This captures lateral geological variability, not just vertical continuity
     const idx={};
     cells.forEach(c=>{ idx[`${c.fase}|${c.banco_num}|${c.cx}|${c.cy}`]=c; });
 
+    const NEIGHBORS=[];
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) NEIGHBORS.push([dx,dy]);
+
+    function getCellVitals(fase,banco,cx,cy){
+      const c=idx[`${fase}|${banco}|${cx}|${cy}`];
+      if(!c) return [0,0,0,0,0]; // zero if cell missing
+      return[c.rop_med,c.feed_med,c.rpm_med,c.torq_med,c.mse_med];
+    }
+
     const pairs=[];
     cells.forEach(c=>{
-      const sup=idx[`${c.fase}|${c.banco_num+15}|${c.cx}|${c.cy}`];
-      if(!sup) return;
+      // Check at least the center cell above exists
+      const supCenter=idx[`${c.fase}|${c.banco_num+15}|${c.cx}|${c.cy}`];
+      if(!supCenter) return;
+
+      // Build feature vector: position + 9 cells × 5 vitals = 4 + 45 = 49 features
+      const feat=[c.x_cell, c.y_cell, c.z_mean, c.banco_num];
+      NEIGHBORS.forEach(([dx,dy])=>{
+        feat.push(...getCellVitals(c.fase, c.banco_num+15, c.cx+dx, c.cy+dy));
+      });
+
       pairs.push({
-        features:[
-          c.x_cell, c.y_cell, c.z_mean, c.banco_num,
-          sup.rop_med, sup.feed_med, sup.rpm_med, sup.torq_med, sup.mse_med
-        ],
+        features: feat,
         label: mseToCatIdx(c.mse_med),
         banco: c.banco_num,
         fase:  c.fase
       });
     });
 
-    log(`${pairs.length} pares banco→banco`);
+    log(`${pairs.length} pares | ${pairs[0]?.features.length} features (vecindad 3×3)`);
     if(pairs.length<20){
       log('Pocos pares. Necesitas MWD de al menos 2 bancos consecutivos por fase.');
       setPredOv(false,''); btn.disabled=false; return;
