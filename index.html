@@ -1300,30 +1300,29 @@ async function trainModel(){
   const log=t=>document.getElementById('train-log').textContent=t;
 
   try{
-    // Step 1: Call SQL function that aggregates all MWD data into cells server-side
-    setPredOv(true,'Consultando celdas agregadas desde Supabase...',10);
-    log('Llamando función get_cell_vitals...');
+    // Step 1: Read pre-calculated cell_vitals table — fast, no timeout
+    setPredOv(true,'Cargando celdas pre-calculadas...',10);
+    log('Leyendo cell_vitals...');
 
-    const{data:cells,error}=await sb.rpc('get_cell_vitals',{cell_size:100});
-    if(error) throw new Error('RPC error: '+error.message);
-    if(!cells?.length) throw new Error('Sin datos. Verifica que la función get_cell_vitals existe en Supabase.');
+    const{data:cells,error}=await sb.from('cell_vitals')
+      .select('fase,banco_num,cx,cy,x_cell,y_cell,z_mean,rop_med,feed_med,rpm_med,torq_med,mse_med,n_pozos')
+      .limit(10000);
+    if(error) throw new Error('Error leyendo cell_vitals: '+error.message);
+    if(!cells?.length) throw new Error('Tabla cell_vitals vacía. Ejecuta el SQL de creación primero.');
 
-    log(`${cells.length.toLocaleString()} celdas recibidas`);
-    setPredOv(true,`${cells.length.toLocaleString()} celdas cargadas. Construyendo pares banco→banco...`,40);
+    const totalCeldas=cells.length;
+    const totalPozos=cells.reduce((s,c)=>s+(c.n_pozos||0),0);
+    log(`${totalCeldas} celdas | ${totalPozos.toLocaleString()} pozos`);
+    setPredOv(true,'Construyendo pares banco→banco...',40);
 
     // Step 2: Build banco→banco pairs
-    // Index by fase|banco|cx|cy
     const idx={};
-    cells.forEach(c=>{
-      idx[`${c.fase}|${c.banco_num}|${c.cx}|${c.cy}`]=c;
-    });
+    cells.forEach(c=>{ idx[`${c.fase}|${c.banco_num}|${c.cx}|${c.cy}`]=c; });
 
     const pairs=[];
     cells.forEach(c=>{
       const sup=idx[`${c.fase}|${c.banco_num+15}|${c.cx}|${c.cy}`];
       if(!sup) return;
-      // Features: position + vitals from SUPERIOR banco (what we know when predicting)
-      // Label: MSE category of CURRENT banco (what we want to predict)
       pairs.push({
         features:[
           c.x_cell, c.y_cell, c.z_mean, c.banco_num,
@@ -1331,21 +1330,21 @@ async function trainModel(){
         ],
         label: mseToCatIdx(c.mse_med),
         banco: c.banco_num,
-        fase: c.fase
+        fase:  c.fase
       });
     });
 
-    log(`${pairs.length} pares banco→banco construidos`);
+    log(`${pairs.length} pares banco→banco`);
     if(pairs.length<20){
-      log('Datos insuficientes. Asegúrate de tener MWD en múltiples bancos.');
+      log('Pocos pares. Necesitas MWD de al menos 2 bancos consecutivos por fase.');
       setPredOv(false,''); btn.disabled=false; return;
     }
 
-    // Step 3: 70/30 split BY BANCO (not by pair) to avoid data leakage
-    setPredOv(true,'Dividiendo datos 70/30 por banco...',55);
-    const bancos=[...new Set(pairs.map(p=>p.banco))];
-    // Shuffle bancos deterministically
-    const shuffled=bancos.slice().sort((a,b)=>(a*7+b*3)%17-(b*7+a*3)%17);
+    // Step 3: 70/30 split BY BANCO — never mix same banco between train/test
+    setPredOv(true,'Split 70/30 por banco...',55);
+    const bancos=[...new Set(pairs.map(p=>p.banco))].sort((a,b)=>a-b);
+    // Deterministic shuffle using modular arithmetic
+    const shuffled=bancos.slice().sort((a,b)=>((a*7+13)%31)-((b*7+13)%31));
     const nTest=Math.max(1,Math.round(shuffled.length*0.3));
     const testBancos=new Set(shuffled.slice(0,nTest));
     const trainBancos=new Set(shuffled.slice(nTest));
@@ -1354,60 +1353,54 @@ async function trainModel(){
     const testPairs =pairs.filter(p=>testBancos.has(p.banco));
 
     log(`Train: ${trainPairs.length} pares (${trainBancos.size} bancos) | Test: ${testPairs.length} pares (${testBancos.size} bancos)`);
-    setPredOv(true,`Entrenando Random Forest con ${trainPairs.length} pares...`,65);
+    setPredOv(true,`Entrenando Random Forest (${trainPairs.length} pares)...`,65);
 
     // Step 4: Train on 70%
     const Xtr=trainPairs.map(p=>p.features);
     const ytr=trainPairs.map(p=>p.label);
-    const rf=trainSimpleRF(Xtr,ytr,60,12);
+    const rf=trainSimpleRF(Xtr,ytr,80,12);
 
     // Step 5: Evaluate on held-out 30%
-    setPredOv(true,'Evaluando en 30% reservado...',85);
-    let correct=0,correctAdj=0,byClass={};
+    setPredOv(true,'Evaluando en 30% reservado...',88);
+    let correct=0, correctAdj=0;
+    const byClass={};
     testPairs.forEach(p=>{
       const pred=rfPredict(rf,p.features);
       if(pred===p.label) correct++;
       if(Math.abs(pred-p.label)<=1) correctAdj++;
-      if(!byClass[p.label]) byClass[p.label]={n:0,ok:0};
+      if(!byClass[p.label]) byClass[p.label]={n:0,ok:0,okAdj:0};
       byClass[p.label].n++;
       if(pred===p.label) byClass[p.label].ok++;
+      if(Math.abs(pred-p.label)<=1) byClass[p.label].okAdj++;
     });
 
-    const accExact=(correct/testPairs.length*100).toFixed(1);
-    const accAdj  =(correctAdj/testPairs.length*100).toFixed(1);
-    const nPozos  =cells.reduce((s,c)=>s+c.n_pozos,0);
-
-    // Per-class breakdown for display
-    const classReport=Object.entries(byClass).map(([idx,v])=>{
+    const accExact =(correct/testPairs.length*100).toFixed(1);
+    const accAdj   =(correctAdj/testPairs.length*100).toFixed(1);
+    const classReport=Object.entries(byClass).sort((a,b)=>+a[0]-+b[0]).map(([idx,v])=>{
       const cat=MSE_CATS[Math.min(+idx,6)];
-      return`${cat.label}: ${(v.ok/v.n*100).toFixed(0)}% (${v.n} celdas)`;
-    }).join(' | ');
+      return`${cat.label}: ${(v.okAdj/v.n*100).toFixed(0)}% ±1 (n=${v.n})`;
+    }).join('\n');
 
     predModel=rf;
     predModelMeta={
-      pozos: nPozos,
-      celdas: cells.length,
-      pares: pairs.length,
-      trainPares: trainPairs.length,
-      testPares: testPairs.length,
+      pozos:totalPozos, celdas:totalCeldas,
+      pares:pairs.length, trainPares:trainPairs.length, testPares:testPairs.length,
       accExact, accAdj,
-      testBancos:[...testBancos].sort().join(', '),
-      classReport,
-      fecha: new Date().toLocaleString('es-CL')
+      testBancos:[...testBancos].sort((a,b)=>a-b).join(', '),
+      classReport, fecha:new Date().toLocaleString('es-CL')
     };
 
     updateModelStatus();
     document.getElementById('btn-predict').disabled=false;
     setPredOv(false,'');
-    log(`✓ Listo — Accuracy exacto: ${accExact}%  |  ±1 categoría: ${accAdj}%`);
+    log(`✓ Accuracy exacto: ${accExact}%  |  ±1 categoría: ${accAdj}%`);
     document.getElementById('pred-ov-text').textContent=
-      `Modelo entrenado. Accuracy ±1 cat: ${accAdj}%. Configura la predicción.`;
+      `Modelo listo — Accuracy ±1 cat: ${accAdj}% en ${testPairs.length} pares de test`;
 
   }catch(e){
     log('Error: '+e.message);
     console.error(e);
     setPredOv(false,'');
-    btn.disabled=false;
   }
   btn.disabled=false;
 }
