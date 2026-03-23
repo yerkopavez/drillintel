@@ -106,6 +106,8 @@ select:focus{outline:none;border-color:var(--accent2)}
 .krig-section{padding:12px 14px;border-bottom:1px solid var(--border)}
 .krig-section h3{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px}
 .krig-map{flex:1;position:relative;overflow:hidden;background:#080c12}
+#krig-overlay.hidden{display:none!important}
+#val-overlay.hidden{display:none!important}
 .krig-btn{width:100%;padding:8px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;border:none;background:var(--accent3);color:#000;margin-top:4px}
 .krig-btn:hover{opacity:.85}.krig-btn:disabled{opacity:.4;cursor:not-allowed}
 .val-sidebar{width:300px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
@@ -2253,8 +2255,13 @@ let krigIsDrag=false,krigLx=0,krigLy=0;
 const krigCharts={};
 
 function resizeKrigCanvas(){
-  const w=document.getElementById('krig-map-wrap');
-  [krigCanvas,krigCMain].forEach(c=>{c.width=w.clientWidth;c.height=w.clientHeight;});
+  const wrap=document.getElementById('krig-map-wrap');
+  const w=wrap.clientWidth||wrap.offsetWidth||800;
+  const h=wrap.clientHeight||wrap.offsetHeight||600;
+  [krigCanvas,krigCMain].forEach(c=>{
+    c.width=w; c.height=h;
+    c.style.width=w+'px'; c.style.height=h+'px';
+  });
 }
 
 function populateKrigFases(){
@@ -2285,6 +2292,8 @@ async function runKriging(){
   const log=t=>document.getElementById('krig-log').textContent=t;
   const setBar=p=>document.getElementById('krig-ov-bar').style.width=p+'%';
   const setTxt=t=>document.getElementById('krig-ov-text').textContent=t;
+  // Ensure canvas has dimensions
+  resizeKrigCanvas();
   document.getElementById('krig-overlay').classList.remove('hidden');
   setBar(5);setTxt(`Cargando pozos ${fase} banco ${banco}...`);
 
@@ -2362,7 +2371,7 @@ async function runKriging(){
 }
 
 function krigW2S(x,y){
-  if(!krigHoles.length) return{sx:0,sy:0};
+  if(!krigHoles.length||!krigCanvas.width) return{sx:0,sy:0};
   const xs=krigHoles.map(h=>h.x_real),ys=krigHoles.map(h=>h.y_real);
   const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
   const mg=40,w=krigCanvas.width,ch=krigCanvas.height;
