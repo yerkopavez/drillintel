@@ -1236,6 +1236,9 @@ function clearDash(){document.getElementById('df-fase').value='';document.getEle
 async function renderDash(){
   if(!dashData){
     const{data,error}=await sb.from('pozos').select('acq_hole,fase,equipo,mse_avg,mse_cat,rop_avg,rend_ope').not('mse_avg','is',null).limit(200000);
+    if(error||!data) return;
+    // Filter out physically impossible ROP values (> 5 m/min = 300 m/hr)
+    dashData=data.filter(h=>!h.rop_avg||h.rop_avg<=5);
     if(error){console.error('Dashboard error:',error);return;}
     dashData=(data||[]).map(h=>({...h,banco:h.acq_hole.split('-')[1],patio:h.acq_hole.split('-')[2]}));
     if(!Object.keys(hierarchy).length)buildH(dashData.map(h=>({id:h.acq_hole})));
