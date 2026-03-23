@@ -1661,7 +1661,7 @@ async function trainModel(){
     }).join('\n');
 
     // Step 6: Save diagnostic data for charts
-    const cmLabels=[...new Set([...yte,...Array.from(ypred)])].sort().map(i=>CAT_ORDER[Math.min(i,6)]);
+    const cmLabels=[...new Set([...testPairs.map(p=>p.label),...Array.from(ypred)])].sort().map(i=>CAT_ORDER[Math.min(i,6)]);
     const cmSize=cmLabels.length;
     const cmIdx=lbl=>cmLabels.indexOf(CAT_ORDER[Math.min(lbl,6)]);
     const confMatrix=Array.from({length:cmSize},()=>new Array(cmSize).fill(0));
@@ -1672,11 +1672,11 @@ async function trainModel(){
 
     const perClassAcc=[];
     for(let i=0;i<7;i++){
-      const pts=testPairs.filter(p=>p.label===i);
-      if(!pts.length) continue;
-      const exact=pts.filter((p,j)=>ypred[testPairs.indexOf(p)]===i).length;
-      const adj=pts.filter((p,j)=>Math.abs(ypred[testPairs.indexOf(p)]-i)<=1).length;
-      perClassAcc.push({cat:CAT_ORDER[i],exactAcc:(exact/pts.length*100).toFixed(0),adjAcc:(adj/pts.length*100).toFixed(0),n:pts.length});
+      const indices=testPairs.map((p,idx)=>p.label===i?idx:-1).filter(idx=>idx>=0);
+      if(!indices.length) continue;
+      const exact=indices.filter(idx=>ypred[idx]===i).length;
+      const adj=indices.filter(idx=>Math.abs(ypred[idx]-i)<=1).length;
+      perClassAcc.push({cat:CAT_ORDER[i],exactAcc:(exact/indices.length*100).toFixed(0),adjAcc:(adj/indices.length*100).toFixed(0),n:indices.length});
     }
 
     // Feature importance grouped
