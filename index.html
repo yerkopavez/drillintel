@@ -1133,29 +1133,32 @@ window.addEventListener('load',async()=>{
   document.getElementById('cfg-url').value=SB_URL;
   document.getElementById('cfg-key').value=SB_KEY;
   resizeCanvas();
+
+  // Test connection first with a simple ping
   try{
-    const{data,error}=await sb.from('pozos')
-      .select('acq_hole,fase')
-      .not('x_real','is',null)
-      .not('mse_avg','is',null)
-      .limit(20000);
-    if(error)throw error;
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout — verifica conexión a internet')),10000));
+    const query=sb.from('pozos').select('acq_hole,fase').not('x_real','is',null).not('mse_avg','is',null).limit(20000);
+    const{data,error}=await Promise.race([query,timeout]);
+    if(error) throw error;
+    if(!data||!data.length) throw new Error('La tabla pozos existe pero está vacía o sin coordenadas');
     buildH(data.map(h=>({id:h.acq_hole})));
-    // Build dynamic FASES list from actual data
     FASES=Object.keys(hierarchy).sort();
-    // Auto-assign colors cycling through palette
     const palette=['#79c0ff','#bc8cff','#f0883e','#56d364','#ff7b72','#e3b341','#f85149','#38bdf8'];
     FASES.forEach((f,i)=>{ if(!window.FASE_COLOR_MAP) window.FASE_COLOR_MAP={}; window.FASE_COLOR_MAP[f]=palette[i%palette.length]; });
     renderFase();
-    // Populate dashboard fase select dynamically
     const dfSel=document.getElementById('df-fase');
     dfSel.innerHTML='<option value="">Todas</option>'+FASES.map(f=>`<option>${f}</option>`).join('');
-    document.getElementById('db-status').textContent='● Supabase';
+    document.getElementById('db-status').textContent=`● Supabase (${data.length.toLocaleString()} pozos)`;
+    document.getElementById('db-status').className='badge online';
   }catch(e){
     console.error('Init error:',e);
-    document.getElementById('fase-chips').innerHTML=`<span style="font-size:11px;color:var(--danger)">Error: ${e.message}</span>`;
-    document.getElementById('db-status').textContent='✗ Error';
-    document.getElementById('db-status').className='badge offline';
+    const msg=e.message||'Error desconocido';
+    document.getElementById('fase-chips').innerHTML=
+      `<span style="font-size:11px;color:var(--danger)" title="${msg}">✗ ${msg}</span>`;
+    document.getElementById('db-status').textContent='✗ Sin conexión';
+    document.getElementById('db-status').className='badge';
+    document.getElementById('db-status').style.borderColor='var(--danger)';
+    document.getElementById('db-status').style.color='var(--danger)';
   }
 });
 // ─── HEATMAP IDW ───
@@ -2231,7 +2234,9 @@ function renderDiagnostics(){
           y:{title:{display:true,text:'MSE real',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}
     });
   }
-}
+} // end renderDiagnostics
+
+window.addEventListener('resize',()=>{
   resizeCanvas();
   hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;
   predOvCanvas.width=canvas.width;predOvCanvas.height=canvas.height;
