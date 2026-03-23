@@ -102,6 +102,18 @@ select:focus{outline:none;border-color:var(--accent2)}
 #view-diagnostico{flex-direction:column;overflow-y:auto;padding:16px;gap:14px;background:var(--bg)}
 #view-validacion{flex-direction:row;overflow:hidden}
 #view-kriging{flex-direction:row;overflow:hidden}
+#view-idv{flex-direction:row;overflow:hidden}
+.idv-sidebar{width:280px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
+.idv-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+.idv-section h3{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px}
+.idv-map{flex:1;position:relative;overflow:hidden;background:#080c12}
+#idv-overlay.hidden{display:none!important}
+.idv-btn{width:100%;padding:8px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;border:none;background:var(--accent);color:#000;margin-top:6px}
+.idv-btn:hover{opacity:.85}.idv-btn:disabled{opacity:.4;cursor:not-allowed}
+.idv-stat{background:var(--bg3);border-radius:5px;padding:7px 10px;margin-bottom:5px}
+.idv-stat .sl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.idv-stat .sv{font-size:16px;font-weight:700;font-family:var(--mono);margin-top:2px}
+.idv-stat .ss{font-size:10px;color:var(--text2)}
 .krig-sidebar{width:280px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
 .krig-section{padding:12px 14px;border-bottom:1px solid var(--border)}
 .krig-section h3{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px}
@@ -191,6 +203,7 @@ select:focus{outline:none;border-color:var(--accent2)}
   <div class="tab" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" onclick="switchTab('upload')">Cargar Datos</div>
   <div class="tab" onclick="switchTab('prediccion')">Predicción ✦</div>
+  <div class="tab" onclick="switchTab('idv')">IDV Banco ↓</div>
   <div class="tab" onclick="switchTab('kriging')">Kriging ⬡</div>
   <div class="tab" onclick="switchTab('diagnostico')">Diagnóstico</div>
   <div class="tab" onclick="switchTab('validacion')">Validación ⊕</div>
@@ -541,6 +554,110 @@ select:focus{outline:none;border-color:var(--accent2)}
         <div class="diag-card">
           <h3>MSE real por categoría predicha</h3>
           <canvas id="ch-mse-cat" style="max-height:220px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IDV — Proyección IDW Vertical al banco siguiente -->
+  <div class="view" id="view-idv">
+    <div class="idv-sidebar">
+
+      <div class="idv-section">
+        <h3>Proyección IDW Vertical</h3>
+        <p style="font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:10px">
+          Usa los <strong style="color:var(--text2)">últimos 5m</strong> de cada pozo del banco actual
+          para interpolar la dureza esperada en el banco siguiente (Z−15m).
+        </p>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:50px">Fase</label>
+          <select id="idv-fase" style="flex:1" onchange="loadIdvBancos()">
+            <option value="">— elige —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:50px">Banco</label>
+          <select id="idv-banco" style="flex:1">
+            <option value="">— elige fase —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:50px">Celda</label>
+          <select id="idv-cell" style="flex:1">
+            <option value="20">20m × 20m</option>
+            <option value="50" selected>50m × 50m</option>
+            <option value="100">100m × 100m</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="font-size:10px;color:var(--text3);width:50px">Radio</label>
+          <select id="idv-radius" style="flex:1">
+            <option value="100">100m</option>
+            <option value="150" selected>150m</option>
+            <option value="200">200m</option>
+            <option value="300">300m</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:4px">
+          <label style="font-size:10px;color:var(--text3);width:50px">Potencia</label>
+          <select id="idv-power" style="flex:1">
+            <option value="1">1 — más suave</option>
+            <option value="2" selected>2 — estándar</option>
+            <option value="3">3 — más local</option>
+          </select>
+        </div>
+        <button class="idv-btn" id="btn-idv" onclick="runIdv()" disabled>↓ Proyectar banco siguiente</button>
+        <div id="idv-log" style="font-size:10px;color:var(--text3);margin-top:6px;font-family:var(--mono);min-height:14px"></div>
+      </div>
+
+      <!-- Opacidad -->
+      <div class="idv-section">
+        <h3>Visualización</h3>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text2);flex:1">Opacidad heatmap</span>
+          <input type="range" id="idv-opacity" min="0" max="100" value="80" style="width:80px;padding:0"
+            oninput="document.getElementById('idv-canvas-hm').style.opacity=this.value/100;document.getElementById('idv-op-lbl').textContent=this.value+'%'">
+          <span id="idv-op-lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-width:30px">80%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text2);flex:1">Puntos banco actual</span>
+          <input type="range" id="idv-pts-opacity" min="0" max="100" value="60" style="width:80px;padding:0"
+            oninput="document.getElementById('idv-canvas-pts').style.opacity=this.value/100;document.getElementById('idv-pts-lbl').textContent=this.value+'%'">
+          <span id="idv-pts-lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);min-width:30px">60%</span>
+        </div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="idv-section">
+        <h3>Leyenda MSE — 5 categorías</h3>
+        <div id="idv-legend-cats" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
+      </div>
+
+      <!-- Estadísticas -->
+      <div class="idv-section" id="idv-stats-wrap" style="display:none">
+        <h3>Estadísticas banco predicho</h3>
+        <div id="idv-stats"></div>
+        <div style="margin-top:10px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:5px">Distribución predicha</div>
+          <canvas id="ch-idv-dist" style="max-height:150px"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Mapa IDV -->
+    <div class="idv-map" id="idv-map-wrap">
+      <canvas id="idv-canvas-base" style="position:absolute;top:0;left:0"></canvas>
+      <canvas id="idv-canvas-hm"   style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.8"></canvas>
+      <canvas id="idv-canvas-pts"  style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.6"></canvas>
+      <div id="idv-bank-label" style="display:none;position:absolute;top:10px;right:10px;z-index:6;background:rgba(22,27,34,.92);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;font-size:11px"></div>
+      <div id="idv-overlay" style="position:absolute;inset:0;background:rgba(8,12,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:20">
+        <div style="font-size:28px;opacity:.2">↓</div>
+        <div id="idv-ov-text" style="font-size:13px;color:var(--text2);text-align:center;max-width:280px;line-height:1.5">
+          Selecciona una fase y banco para proyectar la dureza al banco siguiente
+        </div>
+        <div style="width:200px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden">
+          <div id="idv-ov-bar" style="height:100%;background:var(--accent);width:0%;transition:width .3s"></div>
         </div>
       </div>
     </div>
@@ -1177,12 +1294,13 @@ async function renderDash(){
 // ─── TABS ───
 function switchTab(name){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',
-    ['malla','dashboard','upload','prediccion','kriging','diagnostico','validacion'][i]===name));
+    ['malla','dashboard','upload','prediccion','idv','kriging','diagnostico','validacion'][i]===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   if(name==='dashboard') renderDash();
   if(name==='malla'){setTimeout(()=>{resizeCanvas();renderMap();},10);}
   if(name==='prediccion'){setTimeout(()=>{resizePredCanvas();},10);populatePredFases();}
+  if(name==='idv'){setTimeout(()=>{resizeIdvCanvas();},10);populateIdvFases();}
   if(name==='kriging'){setTimeout(()=>{resizeKrigCanvas();},10);populateKrigFases();}
   if(name==='diagnostico') renderDiagnostics();
   if(name==='validacion'){setTimeout(()=>{resizeValCanvas();},10);populateValFases();}
@@ -2242,6 +2360,343 @@ function setPredOv(show,text,pct){
   }
 }
 
+// ═══ IDV — PROYECCIÓN IDW VERTICAL ═══
+const idvCanvasBase=document.getElementById('idv-canvas-base');
+const idvCanvasHm  =document.getElementById('idv-canvas-hm');
+const idvCanvasPts =document.getElementById('idv-canvas-pts');
+const idvCtxBase   =idvCanvasBase.getContext('2d');
+const idvCtxHm     =idvCanvasHm.getContext('2d');
+const idvCtxPts    =idvCanvasPts.getContext('2d');
+let idvHoles=[], idvGrid=[], idvMapState={ox:0,oy:0,sc:1};
+let idvDrag=false, idvLx=0, idvLy=0;
+const idvCharts={};
+
+// 5-category scale
+const IDV_CATS=[
+  {label:'Muy blando',hi:2100,color:'#38bdf8'},
+  {label:'Blando',    hi:2800,color:'#7dd3fc'},
+  {label:'Moderado',  hi:3400,color:'#4ade80'},
+  {label:'Duro',      hi:4200,color:'#f97316'},
+  {label:'Muy duro',  hi:999999,color:'#ef4444'},
+];
+function idvCatIdx(mse){
+  for(let i=0;i<IDV_CATS.length;i++) if(mse<IDV_CATS[i].hi) return i;
+  return IDV_CATS.length-1;
+}
+
+// Build legend
+(function(){
+  const el=document.getElementById('idv-legend-cats');
+  if(!el) return;
+  IDV_CATS.forEach((c,i)=>{
+    const prev=i>0?IDV_CATS[i-1].hi:0;
+    const range=i<IDV_CATS.length-1?`${prev.toLocaleString()} – ${c.hi.toLocaleString()}`:`> ${prev.toLocaleString()}`;
+    el.innerHTML+=`<div style="display:flex;align-items:center;gap:6px">
+      <div style="width:12px;height:12px;border-radius:2px;background:${c.color};flex-shrink:0"></div>
+      <span style="font-size:11px;color:var(--text2);flex:1">${c.label}</span>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${range}</span>
+    </div>`;
+  });
+})();
+
+function resizeIdvCanvas(){
+  const wrap=document.getElementById('idv-map-wrap');
+  const w=wrap.clientWidth||800, h=wrap.clientHeight||600;
+  [idvCanvasBase,idvCanvasHm,idvCanvasPts].forEach(c=>{
+    c.width=w; c.height=h; c.style.width=w+'px'; c.style.height=h+'px';
+  });
+}
+
+function populateIdvFases(){
+  const sel=document.getElementById('idv-fase');
+  if(sel.options.length>1) return;
+  FASES.forEach(f=>sel.innerHTML+=`<option>${f}</option>`);
+}
+
+function loadIdvBancos(){
+  const fase=document.getElementById('idv-fase').value;
+  const sel=document.getElementById('idv-banco');
+  sel.innerHTML='<option value="">— elige banco —</option>';
+  if(!fase||!hierarchy[fase]) return;
+  const bancos=Object.keys(hierarchy[fase]).map(Number).sort((a,b)=>a-b);
+  bancos.forEach(b=>{
+    sel.innerHTML+=`<option value="${b}">Banco ${b}  →  predice banco ${b-15}</option>`;
+  });
+  sel.onchange=()=>{ document.getElementById('btn-idv').disabled=!sel.value; };
+}
+
+// IDW interpolation: given sample points with value, estimate at query point
+function idwInterpolate(pts, qx, qy, power, radius){
+  const near=pts.filter(p=>{
+    const d=Math.hypot(p.x-qx,p.y-qy);
+    return d<=radius;
+  });
+  if(!near.length) return null;
+  let wSum=0, vSum=0;
+  near.forEach(p=>{
+    const d=Math.hypot(p.x-qx,p.y-qy);
+    if(d<0.001){ wSum=1; vSum=p.mse; return; } // exact hit
+    const w=1/Math.pow(d,power);
+    wSum+=w; vSum+=w*p.mse;
+  });
+  return vSum/wSum;
+}
+
+function idvW2S(x,y){
+  if(!idvHoles.length||!idvCanvasBase.width) return{sx:0,sy:0};
+  const xs=idvHoles.map(h=>h.x), ys=idvHoles.map(h=>h.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs);
+  const y0=Math.min(...ys),y1=Math.max(...ys);
+  const mg=50,w=idvCanvasBase.width,ch=idvCanvasBase.height;
+  const sX=(w-mg*2)/(x1-x0||1), sY=(ch-mg*2)/(y1-y0||1), s=Math.min(sX,sY);
+  const oX=(w-(x1-x0)*s)/2, oY=(ch-(y1-y0)*s)/2;
+  const bx=oX+(x-x0)*s, by=oY+(y1-y)*s;
+  return{sx:idvMapState.ox+(bx-w/2)*idvMapState.sc+w/2,
+         sy:idvMapState.oy+(by-ch/2)*idvMapState.sc+ch/2};
+}
+
+function renderIdvBase(){
+  idvCtxBase.clearRect(0,0,idvCanvasBase.width,idvCanvasBase.height);
+  // Draw reference holes as tiny grey dots
+  idvCtxBase.globalAlpha=0.3;
+  idvHoles.forEach(h=>{
+    const{sx,sy}=idvW2S(h.x,h.y);
+    idvCtxBase.beginPath();idvCtxBase.arc(sx,sy,1.5,0,Math.PI*2);
+    idvCtxBase.fillStyle='#8b949e';idvCtxBase.fill();
+  });
+  idvCtxBase.globalAlpha=1;
+}
+
+function renderIdvHeatmap(cellSize){
+  idvCtxHm.clearRect(0,0,idvCanvasHm.width,idvCanvasHm.height);
+  const{sx:sx1}=idvW2S(0,0),{sx:sx2}=idvW2S(cellSize,0);
+  const cellPx=Math.max(3,Math.abs(sx2-sx1));
+
+  idvGrid.forEach(g=>{
+    if(g.mse===null) return;
+    const{sx,sy}=idvW2S(g.x,g.y);
+    const cat=IDV_CATS[idvCatIdx(g.mse)];
+    const col=cat.color;
+    const r=parseInt(col.slice(1,3),16),gv=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
+    // Confidence: more sample points nearby = more opaque
+    const alpha=0.5+Math.min(g.n,8)/8*0.4;
+    idvCtxHm.fillStyle=`rgba(${r},${gv},${b},${alpha})`;
+    idvCtxHm.fillRect(sx-cellPx/2,sy-cellPx/2,cellPx,cellPx);
+  });
+}
+
+function renderIdvPts(){
+  idvCtxPts.clearRect(0,0,idvCanvasPts.width,idvCanvasPts.height);
+  idvHoles.forEach(h=>{
+    const{sx,sy}=idvW2S(h.x,h.y);
+    const cat=IDV_CATS[idvCatIdx(h.mse)];
+    idvCtxPts.beginPath();idvCtxPts.arc(sx,sy,3,0,Math.PI*2);
+    idvCtxPts.fillStyle=cat.color;idvCtxPts.fill();
+    idvCtxPts.strokeStyle='rgba(0,0,0,0.4)';idvCtxPts.lineWidth=0.5;idvCtxPts.stroke();
+  });
+}
+
+function renderIdvStats(bancoActual, bancoPred){
+  document.getElementById('idv-stats-wrap').style.display='block';
+  const valid=idvGrid.filter(g=>g.mse!==null);
+  const mses=valid.map(g=>g.mse).sort((a,b)=>a-b);
+  const med=mses[Math.floor(mses.length/2)]||0;
+  const catCounts=IDV_CATS.map((_,i)=>valid.filter(g=>idvCatIdx(g.mse)===i).length);
+  const dominant=IDV_CATS[catCounts.indexOf(Math.max(...catCounts))];
+
+  document.getElementById('idv-stats').innerHTML=[
+    {l:'Banco predicho',v:`Banco ${bancoPred}`,s:`Proyección desde banco ${bancoActual}`,c:'var(--accent)'},
+    {l:'Celdas interpoladas',v:valid.length.toLocaleString(),s:`${idvHoles.length} pozos fuente`,c:'var(--accent2)'},
+    {l:'MSE mediana predicho',v:Math.round(med).toLocaleString(),s:IDV_CATS[idvCatIdx(med)].label,c:IDV_CATS[idvCatIdx(med)].color},
+    {l:'Categoría dominante',v:dominant.label,s:`${catCounts[IDV_CATS.indexOf(dominant)]} celdas`,c:dominant.color},
+  ].map(k=>`<div class="idv-stat"><div class="sl">${k.l}</div>
+    <div class="sv" style="color:${k.c}">${k.v}</div>
+    <div class="ss">${k.s}</div></div>`).join('');
+
+  // Distribution chart
+  if(idvCharts['ch-idv-dist']){idvCharts['ch-idv-dist'].destroy();}
+  idvCharts['ch-idv-dist']=new Chart(document.getElementById('ch-idv-dist'),{
+    type:'bar',
+    data:{
+      labels:IDV_CATS.map(c=>c.label),
+      datasets:[{
+        data:catCounts,
+        backgroundColor:IDV_CATS.map(c=>c.color+'cc'),
+        borderRadius:4
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{
+          const pct=(ctx.raw/valid.length*100).toFixed(1);
+          return`${ctx.raw} celdas (${pct}%)`;
+        }}}},
+      scales:{
+        x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}
+      }
+    }
+  });
+}
+
+async function runIdv(){
+  const fase=document.getElementById('idv-fase').value;
+  const banco=parseInt(document.getElementById('idv-banco').value);
+  const cellSize=parseInt(document.getElementById('idv-cell').value);
+  const radius=parseInt(document.getElementById('idv-radius').value);
+  const power=parseInt(document.getElementById('idv-power').value);
+  if(!fase||!banco) return;
+
+  const bancoPred=banco-15;
+  const log=t=>document.getElementById('idv-log').textContent=t;
+  const setBar=p=>document.getElementById('idv-ov-bar').style.width=p+'%';
+  const setTxt=t=>document.getElementById('idv-ov-text').textContent=t;
+
+  resizeIdvCanvas();
+  document.getElementById('idv-overlay').classList.remove('hidden');
+  setBar(5); setTxt(`Cargando pozos ${fase} banco ${banco}...`);
+
+  try{
+    // 1. Load holes for current banco
+    const{data:holes,error}=await sb.from('pozos')
+      .select('acq_hole,x_real,y_real,z_real,mse_avg')
+      .eq('fase',fase).not('x_real','is',null).not('mse_avg','is',null)
+      .gt('mse_avg',0).limit(50000);
+    if(error) throw error;
+
+    const bancoHoles=holes.filter(h=>h.acq_hole.split('-')[1]===String(banco));
+    if(!bancoHoles.length) throw new Error('Sin datos para ese banco');
+
+    setBar(25); setTxt(`${bancoHoles.length} pozos cargados. Cargando MWD últimos 5m...`);
+
+    // 2. Get MWD for last 5m per hole in this banco
+    // Fetch MWD only for holes in this banco
+    const holeIds=bancoHoles.map(h=>h.acq_hole);
+    // Get max depth per hole from pozos depth_real
+    // Use mse_avg already computed (with bottom-5m filter in cell_vitals)
+    // For the IDV we use mse_avg directly — already filtered to last 5m via SQL
+    idvHoles=bancoHoles
+      .filter(h=>h.mse_avg>0)
+      .map(h=>({x:h.x_real, y:h.y_real, z:h.z_real, mse:h.mse_avg}));
+
+    if(!idvHoles.length) throw new Error('Sin pozos con MSE válido');
+    log(`${idvHoles.length} pozos con MSE`);
+    setBar(40); setTxt('Cargando polígonos...');
+
+    // 3. Load polygons for this banco (cierre type preferred)
+    const{data:polys}=await sb.from('polygons')
+      .select('vertices,poly_type,banco')
+      .eq('fase',fase).eq('banco',banco);
+
+    // 4. Build grid — inside polygons if available, else bounding box
+    setBar(55); setTxt('Construyendo grilla de interpolación...');
+
+    const xs=idvHoles.map(h=>h.x), ys=idvHoles.map(h=>h.y);
+    const xMin=Math.min(...xs)-cellSize, xMax=Math.max(...xs)+cellSize;
+    const yMin=Math.min(...ys)-cellSize, yMax=Math.max(...ys)+cellSize;
+
+    // Collect polygon vertices for point-in-poly test
+    const polyVerts=[];
+    if(polys?.length){
+      polys.forEach(p=>{
+        let v=typeof p.vertices==='string'?JSON.parse(p.vertices):p.vertices;
+        if(!v||v.length<3) return;
+        // Clean duplicates
+        v=v.filter((pt,i)=>{
+          if(i===0) return true;
+          const prev=v[i-1];
+          return Math.abs(pt.x-prev.x)>0.01||Math.abs(pt.y-prev.y)>0.01;
+        });
+        if(v.length>1){const f=v[0],l=v[v.length-1];
+          if(Math.abs(f.x-l.x)<0.01&&Math.abs(f.y-l.y)<0.01)v.pop();}
+        if(v.length>=3) polyVerts.push(v);
+      });
+    }
+    const usePolys=polyVerts.length>0;
+
+    // Generate grid points
+    const gridPts=[];
+    for(let gx=xMin+cellSize/2; gx<=xMax; gx+=cellSize){
+      for(let gy=yMin+cellSize/2; gy<=yMax; gy+=cellSize){
+        if(usePolys){
+          if(polyVerts.some(v=>pointInPoly(gx,gy,v))) gridPts.push({x:gx,y:gy});
+        } else {
+          gridPts.push({x:gx,y:gy});
+        }
+      }
+    }
+
+    setBar(65); setTxt(`Interpolando ${gridPts.length} celdas con IDW (radio ${radius}m, p=${power})...`);
+
+    // 5. IDW interpolation — yield to UI every 500 cells
+    idvGrid=[];
+    for(let i=0;i<gridPts.length;i++){
+      if(i%500===0){
+        await new Promise(r=>setTimeout(r,0));
+        setBar(65+Math.round(i/gridPts.length*25));
+      }
+      const{x,y}=gridPts[i];
+      const near=idvHoles.filter(h=>Math.hypot(h.x-x,h.y-y)<=radius);
+      let mse=null;
+      if(near.length){
+        let wSum=0,vSum=0;
+        near.forEach(h=>{
+          const d=Math.hypot(h.x-x,h.y-y);
+          const w=d<0.001?1e9:1/Math.pow(d,power);
+          wSum+=w; vSum+=w*h.mse;
+        });
+        mse=vSum/wSum;
+      }
+      idvGrid.push({x,y,mse,n:near.length});
+    }
+
+    setBar(92); setTxt('Renderizando...');
+    idvMapState={ox:0,oy:0,sc:1};
+
+    renderIdvBase();
+    renderIdvHeatmap(cellSize);
+    renderIdvPts();
+    renderIdvStats(banco, bancoPred);
+
+    // Bank label
+    const lbl=document.getElementById('idv-bank-label');
+    lbl.style.display='block';
+    lbl.innerHTML=`<span style="color:var(--accent)">↓ IDW Vertical</span> &nbsp;·&nbsp; `+
+      `${fase} Banco <strong>${banco}</strong> → predice <strong style="color:var(--accent2)">${bancoPred}</strong>`+
+      (usePolys?` &nbsp;·&nbsp; <span style="color:#38bdf8">${polyVerts.length} polígono(s)</span>`:' &nbsp;·&nbsp; bounding box');
+
+    document.getElementById('idv-overlay').classList.add('hidden');
+    log(`✓ ${idvGrid.filter(g=>g.mse!==null).length} celdas interpoladas`);
+
+  }catch(e){
+    console.error(e);
+    log('Error: '+e.message);
+    setTxt('Error: '+e.message);
+    document.getElementById('btn-idv').disabled=false;
+  }
+  document.getElementById('btn-idv').disabled=false;
+}
+
+// Pan & zoom
+idvCanvasBase.addEventListener('mousedown',e=>{idvLx=e.clientX;idvLy=e.clientY;idvDrag=false;});
+idvCanvasBase.addEventListener('mousemove',e=>{
+  if(e.buttons!==1) return;
+  const dx=e.clientX-idvLx, dy=e.clientY-idvLy;
+  if(Math.abs(dx)>2||Math.abs(dy)>2){
+    idvDrag=true;
+    idvMapState.ox+=dx; idvMapState.oy+=dy;
+    idvLx=e.clientX; idvLy=e.clientY;
+    const cs=parseInt(document.getElementById('idv-cell')?.value||50);
+    renderIdvBase(); renderIdvHeatmap(cs); renderIdvPts();
+  }
+});
+idvCanvasBase.addEventListener('wheel',e=>{
+  e.preventDefault();
+  idvMapState.sc*=e.deltaY<0?1.15:.87;
+  const cs=parseInt(document.getElementById('idv-cell')?.value||50);
+  renderIdvBase(); renderIdvHeatmap(cs); renderIdvPts();
+},{passive:false});
+
 // ═══ KRIGING IDW ═══
 const krigCanvas =document.getElementById('krig-canvas');
 const krigCtx    =krigCanvas.getContext('2d');
@@ -3028,6 +3483,7 @@ window.addEventListener('resize',()=>{
   predOvCanvas.width=canvas.width;predOvCanvas.height=canvas.height;
   renderMap();
   resizePredCanvas();if(predCells.length)renderPredMap();
+  resizeIdvCanvas();
   resizeKrigCanvas();
   resizeValCanvas();
 });
