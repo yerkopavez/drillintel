@@ -1623,10 +1623,14 @@ async function trainModel(){
     log(`Train: ${trainPairs.length} pares (${trainBancos.size} bancos) | Test: ${testPairs.length} pares (${testBancos.size} bancos)`);
     setPredOv(true,`Entrenando Random Forest (${trainPairs.length} pares)...`,65);
 
-    // Step 4: Train on 70%
+    // Step 4: Train on 70% — lighter params to avoid browser freeze
+    setPredOv(true,`Entrenando Random Forest (${trainPairs.length} pares, 30 árboles)...`,65);
     const Xtr=trainPairs.map(p=>p.features);
     const ytr=trainPairs.map(p=>p.label);
-    const rf=trainSimpleRF(Xtr,ytr,80,12);
+
+    // Train asynchronously in small batches to not freeze UI
+    const rf=await trainSimpleRFAsync(Xtr,ytr,30,10,
+      pct=>setPredOv(true,`Entrenando árbol ${Math.round(pct*30)}/30...`,65+pct*20));
 
     // Step 5: Evaluate on held-out 30%
     setPredOv(true,'Evaluando en 30% reservado...',88);
@@ -1762,8 +1766,21 @@ function accumulateImp(node,imp){
   accumulateImp(node.right,imp);
 }
 
-// ── SIMPLE RF IMPLEMENTATION (fallback if CDN fails) ──
-function trainSimpleRF(X,y,nTrees=40,maxDepth=10){
+// ── SIMPLE RF IMPLEMENTATION ──
+async function trainSimpleRFAsync(X,y,nTrees=30,maxDepth=10,onProgress=null){
+  const trees=[];
+  for(let t=0;t<nTrees;t++){
+    // Yield to UI every tree so browser doesn't freeze
+    await new Promise(r=>setTimeout(r,0));
+    const idxs=Array.from({length:X.length},()=>Math.floor(Math.random()*X.length));
+    const Xb=idxs.map(i=>X[i]),yb=idxs.map(i=>y[i]);
+    trees.push(buildTree(Xb,yb,maxDepth));
+    if(onProgress) onProgress((t+1)/nTrees);
+  }
+  return{trees};
+}
+
+function trainSimpleRF(X,y,nTrees=30,maxDepth=10){
   const trees=[];
   for(let t=0;t<nTrees;t++){
     const idxs=Array.from({length:X.length},()=>Math.floor(Math.random()*X.length));
