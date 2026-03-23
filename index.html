@@ -112,6 +112,7 @@ select:focus{outline:none;border-color:var(--accent2)}
 .val-section{padding:12px 14px;border-bottom:1px solid var(--border)}
 .val-section h3{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px}
 .val-map{flex:1;position:relative;overflow:hidden;background:#080c12}
+#val-overlay.hidden{display:none!important}
 .layer-row{display:flex;align-items:center;gap:8px;padding:5px 0}
 .layer-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .layer-lbl{font-size:11px;color:var(--text2);flex:1}
@@ -2468,8 +2469,13 @@ let valIsDrag=false,valLx=0,valLy=0;
 const valCharts={};
 
 function resizeValCanvas(){
-  const w=document.getElementById('val-map-wrap');
-  [valCanvas,valCReal,valCPred,valCErr].forEach(c=>{c.width=w.clientWidth;c.height=w.clientHeight;});
+  const wrap=document.getElementById('val-map-wrap');
+  const w=wrap.clientWidth||wrap.offsetWidth||800;
+  const h=wrap.clientHeight||wrap.offsetHeight||600;
+  [valCanvas,valCReal,valCPred,valCErr].forEach(c=>{
+    c.width=w; c.height=h;
+    c.style.width=w+'px'; c.style.height=h+'px';
+  });
 }
 
 function populateValFases(){
@@ -2511,6 +2517,9 @@ async function runValidation(){
   const log=t=>document.getElementById('val-log').textContent=t;
   const setBar=p=>document.getElementById('val-ov-bar').style.width=p+'%';
   const setOvTxt=t=>document.getElementById('val-ov-text').textContent=t;
+
+  // Ensure canvases have dimensions before any rendering
+  resizeValCanvas();
 
   // Show overlay
   document.getElementById('val-overlay').classList.remove('hidden');
@@ -2629,7 +2638,7 @@ async function runValidation(){
 }
 
 function valW2S(x,y){
-  if(!valHoles.length) return{sx:0,sy:0};
+  if(!valHoles.length||!valCanvas.width) return{sx:0,sy:0};
   const xs=valHoles.map(h=>h.x_real),ys=valHoles.map(h=>h.y_real);
   const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
   const mg=40,w=valCanvas.width,ch=valCanvas.height;
