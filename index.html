@@ -99,6 +99,19 @@ select:focus{outline:none;border-color:var(--accent2)}
 .chart-card .ct{font-size:11px;font-weight:600;margin-bottom:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
 #view-upload{flex-direction:column;overflow-y:auto;padding:20px;gap:14px}
 #view-prediccion{flex-direction:row;overflow:hidden}
+#view-diagnostico{flex-direction:column;overflow-y:auto;padding:16px;gap:14px;background:var(--bg)}
+.diag-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.diag-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.diag-card h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:12px}
+.diag-card canvas{width:100%!important}
+.diag-full{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.diag-full h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:12px}
+.cm-table{width:100%;border-collapse:collapse;font-size:10px;font-family:var(--mono)}
+.cm-table th{padding:4px 6px;color:var(--text3);text-align:center;font-weight:500}
+.cm-table td{padding:3px 6px;text-align:center;border-radius:2px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+.stat-row:last-child{border-bottom:none}
+.no-model-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--text3);gap:8px;font-size:13px}
 .pred-sidebar{width:320px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;gap:0}
 .pred-section{padding:14px;border-bottom:1px solid var(--border)}
 .pred-section h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px}
@@ -152,6 +165,7 @@ select:focus{outline:none;border-color:var(--accent2)}
   <div class="tab" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" onclick="switchTab('upload')">Cargar Datos</div>
   <div class="tab" onclick="switchTab('prediccion')">Predicción ✦</div>
+  <div class="tab" onclick="switchTab('diagnostico')">Diagnóstico modelo</div>
 </div>
 <div id="toolbar">
   <div class="tbar-row">
@@ -432,6 +446,73 @@ select:focus{outline:none;border-color:var(--accent2)}
         </div>
         <div id="pred-ov-bar-wrap" style="width:200px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;display:none">
           <div id="pred-ov-bar" style="height:100%;background:var(--purple);width:0%;transition:width .3s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIAGNÓSTICO MODELO -->
+  <div class="view" id="view-diagnostico">
+    <div id="diag-no-model" class="no-model-msg">
+      <div style="font-size:32px;opacity:.2">⬡</div>
+      <div>Primero entrena el modelo en la pestaña Predicción ✦</div>
+      <button class="btn" onclick="switchTab('prediccion')">Ir a Predicción</button>
+    </div>
+    <div id="diag-content" style="display:none;display:flex;flex-direction:column;gap:14px">
+      <!-- Resumen métricas -->
+      <div class="diag-full">
+        <h3>Resumen del modelo</h3>
+        <div id="diag-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+      </div>
+      <div class="diag-grid">
+        <!-- Matriz de confusión -->
+        <div class="diag-card">
+          <h3>Matriz de confusión (set de test 30%)</h3>
+          <div id="diag-cm"></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:8px">Filas = categoría real · Columnas = predicción · Diagonal = aciertos</div>
+        </div>
+        <!-- Accuracy por categoría -->
+        <div class="diag-card">
+          <h3>Accuracy por categoría</h3>
+          <div id="diag-acc-cat"></div>
+        </div>
+      </div>
+      <div class="diag-grid">
+        <!-- Feature importance -->
+        <div class="diag-card">
+          <h3>Importancia de variables (agrupada)</h3>
+          <canvas id="ch-feat-imp" style="max-height:220px"></canvas>
+        </div>
+        <!-- Pred vs Real -->
+        <div class="diag-card">
+          <h3>Predicho vs Real (set de test)</h3>
+          <canvas id="ch-pred-real" style="max-height:220px"></canvas>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px">Diagonal perfecta = modelo ideal · Puntos fuera = errores</div>
+        </div>
+      </div>
+      <div class="diag-grid">
+        <!-- ROP vs MSE -->
+        <div class="diag-card">
+          <h3>ROP vs MSE por categoría</h3>
+          <canvas id="ch-rop-mse" style="max-height:220px"></canvas>
+        </div>
+        <!-- Feed vs MSE -->
+        <div class="diag-card">
+          <h3>Feed Force vs MSE por categoría</h3>
+          <canvas id="ch-feed-mse" style="max-height:220px"></canvas>
+        </div>
+      </div>
+      <div class="diag-grid">
+        <!-- Distribución confianza -->
+        <div class="diag-card">
+          <h3>Distribución de confianza del modelo</h3>
+          <canvas id="ch-conf" style="max-height:220px"></canvas>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px">Mayor concentración a la derecha = modelo más seguro</div>
+        </div>
+        <!-- MSE real por categoría (boxplot simulado) -->
+        <div class="diag-card">
+          <h3>MSE real por categoría predicha</h3>
+          <canvas id="ch-mse-cat" style="max-height:220px"></canvas>
         </div>
       </div>
     </div>
@@ -885,12 +966,14 @@ async function renderDash(){
 
 // ─── TABS ───
 function switchTab(name){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['malla','dashboard','upload','prediccion'][i]===name));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',
+    ['malla','dashboard','upload','prediccion','diagnostico'][i]===name));
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
-  if(name==='dashboard')renderDash();
+  if(name==='dashboard') renderDash();
   if(name==='malla'){setTimeout(()=>{resizeCanvas();renderMap();},10);}
   if(name==='prediccion'){setTimeout(()=>{resizePredCanvas();},10);populatePredFases();}
+  if(name==='diagnostico') renderDiagnostics();
 }
 
 // ─── UPLOAD ───
@@ -1512,7 +1595,10 @@ async function trainModel(){
         features: feat,
         label: mseToCatIdx(c.mse_med),
         banco: c.banco_num,
-        fase:  c.fase
+        fase:  c.fase,
+        mse_real: c.mse_med,
+        rop: c.rop_med,
+        feed: c.feed_med,
       });
     });
 
@@ -1544,10 +1630,14 @@ async function trainModel(){
 
     // Step 5: Evaluate on held-out 30%
     setPredOv(true,'Evaluando en 30% reservado...',88);
+    const CAT_ORDER=['Muy blando','Blando','Moderado -','Moderado +','Duro','Muy duro','Extremo'];
     let correct=0, correctAdj=0;
     const byClass={};
+    const ypred=[]; const yproba=[];
     testPairs.forEach(p=>{
       const pred=rfPredict(rf,p.features);
+      const prob=rfPredictProba(rf,p.features);
+      ypred.push(pred); yproba.push(prob);
       if(pred===p.label) correct++;
       if(Math.abs(pred-p.label)<=1) correctAdj++;
       if(!byClass[p.label]) byClass[p.label]={n:0,ok:0,okAdj:0};
@@ -1563,13 +1653,55 @@ async function trainModel(){
       return`${cat.label}: ${(v.okAdj/v.n*100).toFixed(0)}% ±1 (n=${v.n})`;
     }).join('\n');
 
+    // Step 6: Save diagnostic data for charts
+    const cmLabels=[...new Set([...yte,...Array.from(ypred)])].sort().map(i=>CAT_ORDER[Math.min(i,6)]);
+    const cmSize=cmLabels.length;
+    const cmIdx=lbl=>cmLabels.indexOf(CAT_ORDER[Math.min(lbl,6)]);
+    const confMatrix=Array.from({length:cmSize},()=>new Array(cmSize).fill(0));
+    testPairs.forEach((p,i)=>{
+      const ri=cmIdx(p.label),pi2=cmIdx(ypred[i]);
+      if(ri>=0&&pi2>=0) confMatrix[ri][pi2]++;
+    });
+
+    const perClassAcc=[];
+    for(let i=0;i<7;i++){
+      const pts=testPairs.filter(p=>p.label===i);
+      if(!pts.length) continue;
+      const exact=pts.filter((p,j)=>ypred[testPairs.indexOf(p)]===i).length;
+      const adj=pts.filter((p,j)=>Math.abs(ypred[testPairs.indexOf(p)]-i)<=1).length;
+      perClassAcc.push({cat:CAT_ORDER[i],exactAcc:(exact/pts.length*100).toFixed(0),adjAcc:(adj/pts.length*100).toFixed(0),n:pts.length});
+    }
+
+    // Feature importance grouped
+    const featNames=['x','y','z','banco'];
+    for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++)
+      featNames.push(`rop_${dx}${dy}`,`feed_${dx}${dy}`,`rpm_${dx}${dy}`,`torq_${dx}${dy}`,`mse_${dx}${dy}`);
+    const impGroups={ROP:0,'Feed Force':0,RPM:0,Torque:0,MSE:0,'Posición X/Y/Z':0};
+    const allImp=getAllFeatureImportance(rf);
+    allImp.forEach((imp,i)=>{
+      const n=featNames[i]||'';
+      if(['x','y','z','banco'].includes(n)) impGroups['Posición X/Y/Z']+=imp;
+      else if(n.startsWith('rop')) impGroups['ROP']+=imp;
+      else if(n.startsWith('feed')) impGroups['Feed Force']+=imp;
+      else if(n.startsWith('rpm')) impGroups['RPM']+=imp;
+      else if(n.startsWith('torq')) impGroups['Torque']+=imp;
+      else if(n.startsWith('mse')) impGroups['MSE']+=imp;
+    });
+    const featureImportance=Object.entries(impGroups).sort((a,b)=>b[1]-a[1]).map(([name,imp])=>({name,imp}));
+
     predModel=rf;
     predModelMeta={
       pozos:totalPozos, celdas:totalCeldas,
       pares:pairs.length, trainPares:trainPairs.length, testPares:testPairs.length,
       accExact, accAdj,
       testBancos:[...testBancos].sort((a,b)=>a-b).join(', '),
-      classReport, fecha:new Date().toLocaleString('es-CL')
+      classReport, fecha:new Date().toLocaleString('es-CL'),
+      // Diagnostic data
+      confMatrix, cmLabels, perClassAcc, featureImportance,
+      predVsReal: testPairs.map((p,i)=>({real:p.label, pred:ypred[i], conf:yproba[i]})),
+      ropVsMse:   testPairs.map(p=>({cat:p.label, mse:p.mse_real||0, rop:p.rop||0})),
+      vitalsVsMse:testPairs.map(p=>({cat:p.label, mse:p.mse_real||0, feed:p.feed||0})),
+      mseByCat:   testPairs.map(p=>({cat:p.label, mse:p.mse_real||0})),
     };
 
     updateModelStatus();
@@ -1609,6 +1741,25 @@ function updateModelStatus(){
 function mseToCatIdx(mse){
   if(mse<2000)return 0; if(mse<2700)return 1; if(mse<3400)return 2;
   if(mse<4200)return 3; if(mse<5200)return 4; if(mse<7000)return 5; return 6;
+}
+
+function getAllFeatureImportance(rf){
+  if(!rf||!rf.trees) return [];
+  const nFeat=rf.trees[0]?getTreeMaxFeat(rf.trees[0])+1:49;
+  const imp=new Array(nFeat).fill(0);
+  rf.trees.forEach(tree=>accumulateImp(tree,imp));
+  const total=imp.reduce((a,b)=>a+b,1e-10);
+  return imp.map(v=>v/total);
+}
+function getTreeMaxFeat(node){
+  if(node.leaf) return 0;
+  return Math.max(node.feat,getTreeMaxFeat(node.left),getTreeMaxFeat(node.right));
+}
+function accumulateImp(node,imp){
+  if(node.leaf) return;
+  if(node.feat>=0&&node.feat<imp.length) imp[node.feat]+=1;
+  accumulateImp(node.left,imp);
+  accumulateImp(node.right,imp);
 }
 
 // ── SIMPLE RF IMPLEMENTATION (fallback if CDN fails) ──
@@ -1859,7 +2010,211 @@ function setPredOv(show,text,pct){
   }
 }
 
-window.addEventListener('resize',()=>{
+// ═══ DIAGNÓSTICO ═══
+const diagCharts={};
+function dC2(id){if(diagCharts[id]){diagCharts[id].destroy();delete diagCharts[id];}}
+
+function renderDiagnostics(){
+  if(!predModel||!predModelMeta){
+    document.getElementById('diag-no-model').style.display='flex';
+    document.getElementById('diag-content').style.display='none';
+    return;
+  }
+  document.getElementById('diag-no-model').style.display='none';
+  document.getElementById('diag-content').style.display='flex';
+
+  const m=predModelMeta;
+  const CAT_ORDER=['Muy blando','Blando','Moderado -','Moderado +','Duro','Muy duro','Extremo'];
+  const CAT_COLORS=['#38bdf8','#7dd3fc','#4ade80','#86efac','#f97316','#ef4444','#991b1b'];
+
+  // ── Resumen ──
+  document.getElementById('diag-summary').innerHTML=[
+    {l:'Pozos totales',v:(m.pozos||0).toLocaleString(),c:'var(--accent2)'},
+    {l:'Pares entrenamiento',v:(m.trainPares||0).toString(),c:'var(--accent3)'},
+    {l:'Accuracy exacto',v:m.accExact+'%',c:'var(--warn)'},
+    {l:'Accuracy ±1 cat',v:m.accAdj+'%',c:'var(--purple)'},
+  ].map(k=>`<div style="background:var(--bg3);border-radius:6px;padding:10px 12px">
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">${k.l}</div>
+    <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:${k.c};margin-top:4px">${k.v}</div>
+  </div>`).join('');
+
+  // ── Matriz de confusión ──
+  if(m.confMatrix&&m.cmLabels){
+    const labels=m.cmLabels;
+    const cm=m.confMatrix;
+    const maxVal=Math.max(...cm.flat());
+    let html=`<table class="cm-table"><tr><th></th>${labels.map(l=>`<th style="color:${CAT_COLORS[CAT_ORDER.indexOf(l)]||'var(--text3)'}">${l.split(' ')[0]}</th>`).join('')}</tr>`;
+    cm.forEach((row,i)=>{
+      html+=`<tr><th style="text-align:right;color:${CAT_COLORS[CAT_ORDER.indexOf(labels[i])]||'var(--text3)'}">${labels[i].split(' ')[0]}</th>`;
+      row.forEach((v,j)=>{
+        const isdiag=i===j;
+        const intensity=maxVal>0?v/maxVal:0;
+        const bg=isdiag
+          ?`rgba(86,211,100,${0.15+intensity*0.65})`
+          :v>0?`rgba(248,81,73,${0.08+intensity*0.4})`:'transparent';
+        const col=v>0?(isdiag?'#56d364':'#f85149'):'var(--text3)';
+        html+=`<td style="background:${bg};color:${col};font-weight:${isdiag?700:400}">${v}</td>`;
+      });
+      html+=`</tr>`;
+    });
+    html+='</table>';
+    document.getElementById('diag-cm').innerHTML=html;
+  } else {
+    document.getElementById('diag-cm').innerHTML='<div style="color:var(--text3);font-size:11px">Entrena el modelo para ver la matriz de confusión</div>';
+  }
+
+  // ── Accuracy por categoría ──
+  if(m.perClassAcc){
+    document.getElementById('diag-acc-cat').innerHTML=m.perClassAcc.map(c=>{
+      const col=CAT_COLORS[CAT_ORDER.indexOf(c.cat)]||'#888';
+      return`<div class="stat-row">
+        <span style="color:${col};font-size:11px">${c.cat}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:100px;height:5px;background:var(--bg4);border-radius:3px">
+            <div style="width:${c.adjAcc}%;height:100%;background:${col};border-radius:3px"></div>
+          </div>
+          <span style="font-size:10px;color:var(--text2);font-family:var(--mono);min-width:80px">
+            ${c.exactAcc}% | ${c.adjAcc}% ±1
+          </span>
+          <span style="font-size:10px;color:var(--text3)">n=${c.n}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Feature importance ──
+  if(m.featureImportance){
+    dC2('ch-feat-imp');
+    const fi=m.featureImportance;
+    diagCharts['ch-feat-imp']=new Chart(document.getElementById('ch-feat-imp'),{
+      type:'bar',
+      data:{
+        labels:fi.map(f=>f.name),
+        datasets:[{
+          data:fi.map(f=>+(f.imp*100).toFixed(1)),
+          backgroundColor:['#f97316','#38bdf8','#ef4444','#4ade80','#bc8cff','#e3b341'],
+          borderRadius:4
+        }]
+      },
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>`${ctx.raw.toFixed(1)}% importancia`}}},
+        scales:{
+          x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},
+             title:{display:true,text:'% importancia',color:'#6e7681',font:{size:10}}},
+          y:{ticks:{color:'#8b949e',font:{size:11}},grid:{display:false}}
+        }
+      }
+    });
+  }
+
+  // ── Pred vs Real scatter ──
+  if(m.predVsReal){
+    dC2('ch-pred-real');
+    // Add jitter to avoid overlap
+    const datasets=CAT_ORDER.map((cat,i)=>{
+      const pts=m.predVsReal.filter(p=>p.real===i)
+        .map(p=>({x:p.real+(Math.random()-.5)*.25, y:p.pred+(Math.random()-.5)*.25, conf:p.conf}));
+      return{label:cat, data:pts, backgroundColor:CAT_COLORS[i]+'99', pointRadius:4, pointHoverRadius:6};
+    }).filter(d=>d.data.length>0);
+    diagCharts['ch-pred-real']=new Chart(document.getElementById('ch-pred-real'),{
+      type:'scatter',
+      data:{datasets},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>`Real: ${CAT_ORDER[Math.round(ctx.raw.x)]} → Pred: ${CAT_ORDER[Math.round(ctx.raw.y)]}`}}},
+        scales:{
+          x:{min:-.5,max:6.5,ticks:{color:'#8b949e',font:{size:9},
+            callback:v=>Number.isInteger(v)&&v>=0&&v<7?CAT_ORDER[v].split(' ')[0]:''},
+            grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Real',color:'#6e7681',font:{size:10}}},
+          y:{min:-.5,max:6.5,ticks:{color:'#8b949e',font:{size:9},
+            callback:v=>Number.isInteger(v)&&v>=0&&v<7?CAT_ORDER[v].split(' ')[0]:''},
+            grid:{color:'rgba(255,255,255,.05)'},title:{display:true,text:'Predicho',color:'#6e7681',font:{size:10}}}
+        }
+      }
+    });
+  }
+
+  // ── ROP vs MSE scatter ──
+  if(m.ropVsMse){
+    dC2('ch-rop-mse');
+    const ds2=CAT_ORDER.map((cat,i)=>{
+      const pts=m.ropVsMse.filter(p=>p.cat===i).map(p=>({x:p.mse,y:p.rop}));
+      return{label:cat,data:pts,backgroundColor:CAT_COLORS[i]+'88',pointRadius:3};
+    }).filter(d=>d.data.length>0);
+    diagCharts['ch-rop-mse']=new Chart(document.getElementById('ch-rop-mse'),{
+      type:'scatter',data:{datasets:ds2},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:9},boxWidth:8,padding:6}}},
+        scales:{
+          x:{title:{display:true,text:'MSE real',color:'#6e7681',font:{size:10}},
+            ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
+          y:{title:{display:true,text:'ROP (m/min)',color:'#6e7681',font:{size:10}},
+            ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}
+        }
+      }
+    });
+  }
+
+  // ── Feed vs MSE ──
+  if(m.vitalsVsMse){
+    dC2('ch-feed-mse');
+    const ds3=CAT_ORDER.map((cat,i)=>{
+      const pts=m.vitalsVsMse.filter(p=>p.cat===i).map(p=>({x:p.mse,y:p.feed}));
+      return{label:cat,data:pts,backgroundColor:CAT_COLORS[i]+'88',pointRadius:3};
+    }).filter(d=>d.data.length>0);
+    diagCharts['ch-feed-mse']=new Chart(document.getElementById('ch-feed-mse'),{
+      type:'scatter',data:{datasets:ds3},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{title:{display:true,text:'MSE real',color:'#6e7681',font:{size:10}},
+            ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
+          y:{title:{display:true,text:'Feed Force (daN)',color:'#6e7681',font:{size:10}},
+            ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}
+        }
+      }
+    });
+  }
+
+  // ── Distribución confianza ──
+  if(m.predVsReal){
+    dC2('ch-conf');
+    const bins=[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1.01];
+    const hist=new Array(bins.length-1).fill(0);
+    m.predVsReal.forEach(p=>{for(let i=0;i<bins.length-1;i++)if(p.conf>=bins[i]&&p.conf<bins[i+1]){hist[i]++;break;}});
+    diagCharts['ch-conf']=new Chart(document.getElementById('ch-conf'),{
+      type:'bar',
+      data:{labels:bins.slice(0,-1).map(b=>`${(b*100).toFixed(0)}%`),
+        datasets:[{data:hist,backgroundColor:hist.map((_,i)=>{
+          const t=i/(hist.length-1);
+          return`rgba(${Math.round(248-(248-86)*t)},${Math.round(81+(211-81)*t)},${Math.round(73+(100-73)*t)},0.8)`;
+        }),borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
+          y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+    });
+  }
+
+  // ── MSE real por categoría predicha ──
+  if(m.mseByCat){
+    dC2('ch-mse-cat');
+    const cats=CAT_ORDER.filter((_,i)=>m.mseByCat.some(p=>p.cat===i));
+    diagCharts['ch-mse-cat']=new Chart(document.getElementById('ch-mse-cat'),{
+      type:'bar',
+      data:{labels:CAT_ORDER,
+        datasets:[
+          {label:'P25',data:CAT_ORDER.map((_,i)=>{const v=m.mseByCat.filter(p=>p.cat===i).map(p=>p.mse).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length*.25)]:null;}),backgroundColor:CAT_COLORS.map(c=>c+'44'),borderRadius:2},
+          {label:'Mediana',data:CAT_ORDER.map((_,i)=>{const v=m.mseByCat.filter(p=>p.cat===i).map(p=>p.mse).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length*.5)]:null;}),backgroundColor:CAT_COLORS,borderRadius:3},
+          {label:'P75',data:CAT_ORDER.map((_,i)=>{const v=m.mseByCat.filter(p=>p.cat===i).map(p=>p.mse).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length*.75)]:null;}),backgroundColor:CAT_COLORS.map(c=>c+'44'),borderRadius:2},
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:9},boxWidth:8,padding:6}}},
+        scales:{x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
+          y:{title:{display:true,text:'MSE real',color:'#6e7681',font:{size:10}},ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}
+    });
+  }
+}
   resizeCanvas();
   hmCanvas.width=canvas.width;hmCanvas.height=canvas.height;
   predOvCanvas.width=canvas.width;predOvCanvas.height=canvas.height;
