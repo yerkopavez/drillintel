@@ -2447,7 +2447,8 @@ valCanvas.addEventListener('mousemove',e=>{
     if(Math.abs(dx)>2||Math.abs(dy)>2){
       valIsDrag=true;valMapState.ox+=dx;valMapState.oy+=dy;
       valLx=e.clientX;valLy=e.clientY;
-      renderValMap();renderValReal();renderValPred();renderValError();
+      const cs=parseInt(document.getElementById('val-cell')?.value||50);
+      renderValMap();renderValReal(cs);renderValPred(cs);renderValError(cs);
     }
   }
 });
