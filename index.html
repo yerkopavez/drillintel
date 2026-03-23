@@ -1466,8 +1466,12 @@ window.addEventListener('load',async()=>{
 
   // Test connection first with a simple ping
   try{
-    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout — verifica conexión a internet')),10000));
-    const query=sb.from('pozos').select('acq_hole,fase').not('x_real','is',null).not('mse_avg','is',null).limit(20000);
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout — verifica conexión a internet')),15000));
+    // Load ALL holes for hierarchy — only needs acq_hole, no filters beyond x_real
+    const query=sb.from('pozos')
+      .select('acq_hole,fase')
+      .not('x_real','is',null)
+      .limit(200000);
     const{data,error}=await Promise.race([query,timeout]);
     if(error) throw error;
     if(!data||!data.length) throw new Error('La tabla pozos existe pero está vacía o sin coordenadas');
