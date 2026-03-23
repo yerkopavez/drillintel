@@ -247,6 +247,7 @@ select:focus{outline:none;border-color:var(--accent2)}
       <canvas id="map-canvas"></canvas>
       <canvas id="hm-canvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.72;display:none"></canvas>
       <canvas id="pred-overlay-canvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.75;display:none"></canvas>
+      <div id="pred-bank-label" style="display:none;position:absolute;top:10px;right:10px;z-index:6;background:rgba(188,140,255,.2);border:1px solid var(--purple);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--purple);font-weight:600"></div>
       <div id="map-stats" style="display:none">
         <div class="ms-row">
           <div class="ms-item"><div class="ml">Pozos</div><div class="mv" id="ms-n" style="color:var(--accent2)">—</div></div>
@@ -503,13 +504,12 @@ select:focus{outline:none;border-color:var(--accent2)}
         </div>
       </div>
       <div class="diag-grid">
-        <!-- Distribución confianza -->
+        <!-- ROP por categoría -->
         <div class="diag-card">
-          <h3>Distribución de confianza del modelo</h3>
-          <canvas id="ch-conf" style="max-height:220px"></canvas>
-          <div style="font-size:10px;color:var(--text3);margin-top:6px">Mayor concentración a la derecha = modelo más seguro</div>
+          <h3>ROP por categoría (mediana)</h3>
+          <canvas id="ch-rop-cat" style="max-height:220px"></canvas>
         </div>
-        <!-- MSE real por categoría (boxplot simulado) -->
+        <!-- MSE real por categoría -->
         <div class="diag-card">
           <h3>MSE real por categoría predicha</h3>
           <canvas id="ch-mse-cat" style="max-height:220px"></canvas>
@@ -1365,8 +1365,10 @@ function togglePredMap(el){
   el.style.color=predMapOn?'#000':'';
   document.getElementById('pred-map-opacity-wrap').style.display=predMapOn?'flex':'none';
   predOvCanvas.style.display=predMapOn?'block':'none';
+  document.getElementById('pred-bank-label').style.display=predMapOn?'block':'none';
   if(predMapOn) buildPredMapOverlay();
-  else{predOvCtx.clearRect(0,0,predOvCanvas.width,predOvCanvas.height);predMapCells=[];}
+  else{predOvCtx.clearRect(0,0,predOvCanvas.width,predOvCanvas.height);predMapCells=[];
+    document.getElementById('pred-bank-label').style.display='none';}
 }
 
 async function buildPredMapOverlay(){
@@ -1427,8 +1429,10 @@ async function buildPredMapOverlay(){
 
   if(!gridPoints.length) return;
 
-  // Get banco num
   const bancoNum=parseInt(activeBanco)||0;
+  const bancoPred=bancoNum-15;
+  document.getElementById('pred-bank-label').textContent=
+    `⬡ Predicción banco ${bancoPred} (basada en banco ${bancoNum})`;
 
   // Get cell vitals for current banco from already-loaded cell_vitals
   // Build lookup from HOLES vitals aggregated to 20m cells
@@ -2213,6 +2217,32 @@ function renderDiagnostics(){
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
         scales:{x:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
           y:{ticks:{color:'#8b949e',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}
+    });
+  }
+
+  // ── ROP por categoría ──
+  if(m.vitalsVsMse){
+    dC2('ch-rop-cat');
+    const ropByCat=CAT_ORDER.map((_,i)=>{
+      const vals=m.vitalsVsMse.filter(p=>p.cat===i).map(p=>p.rop).filter(v=>v>0).sort((a,b)=>a-b);
+      if(!vals.length) return null;
+      return{p25:vals[Math.floor(vals.length*.25)],med:vals[Math.floor(vals.length*.5)],p75:vals[Math.floor(vals.length*.75)]};
+    });
+    diagCharts['ch-rop-cat']=new Chart(document.getElementById('ch-rop-cat'),{
+      type:'bar',
+      data:{labels:CAT_ORDER.map(c=>c.split(' ')[0]+(c.includes('-')||c.includes('+')?c.slice(-1):'')),
+        datasets:[
+          {label:'P25',data:ropByCat.map(v=>v?+v.p25.toFixed(2):null),backgroundColor:CAT_COLORS.map(c=>c+'44'),borderRadius:2},
+          {label:'Mediana',data:ropByCat.map(v=>v?+v.med.toFixed(2):null),backgroundColor:CAT_COLORS,borderRadius:3},
+          {label:'P75',data:ropByCat.map(v=>v?+v.p75.toFixed(2):null),backgroundColor:CAT_COLORS.map(c=>c+'44'),borderRadius:2},
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:9},boxWidth:8,padding:6}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw} m/min (${(ctx.raw*60).toFixed(0)} m/hr)`}}},
+        scales:{x:{ticks:{color:'#8b949e',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
+          y:{title:{display:true,text:'ROP (m/min)',color:'#6e7681',font:{size:10}},
+            ticks:{color:'#8b949e',font:{size:9},callback:v=>`${v} (${(v*60).toFixed(0)}m/hr)`},
+            grid:{color:'rgba(255,255,255,.05)'}}}}
     });
   }
 
